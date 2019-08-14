@@ -43,7 +43,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $group_id;
 
 //    const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '103';
+    const MB_VERSION = '104';
 
     public function indexAction()
     {
@@ -1197,6 +1197,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $ordersCollection->getSelect()->columns(array('total_paid' => new Zend_Db_Expr ('main_table.base_grand_total')));
         $ordersCollection->getSelect()->columns(array('firstname' => new Zend_Db_Expr ('main_table.customer_firstname')));
         $ordersCollection->getSelect()->columns(array('lastname' => new Zend_Db_Expr ('main_table.customer_lastname')));
+        $ordersCollection->getSelect()->columns(array('customer_email' => new Zend_Db_Expr('main_table.customer_email')));
         $ordersCollection->getSelect()->columns(array('full_name' => new Zend_Db_Expr ('CONCAT(main_table.customer_firstname, " ", main_table.customer_lastname)')));
         $ordersCollection->getSelect()->columns(array('iso_code' => new Zend_Db_Expr ('main_table.global_currency_code')));
         $ordersCollection->getSelect()->columns(array('date_add' => new Zend_Db_Expr ('CONVERT_TZ(main_table.created_at, "+00:00", "' . $offset . '")')));
@@ -1257,8 +1258,9 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $query = '';
         if (!empty($this->search_order_id)) {
             $query_where_parts[] = "(main_table.customer_firstname LIKE ('%" . $this->search_order_id . "%')
-                                     OR main_table.customer_lastname LIKE ('%" . $this->search_order_id . "%')
-                                     OR CONCAT(main_table.customer_firstname, ' ', main_table.customer_lastname) LIKE ('%" . $this->search_order_id . "%'))";
+                OR main_table.customer_lastname LIKE ('%" . $this->search_order_id
+                . "%') OR CONCAT(main_table.customer_firstname, ' ', main_table.customer_lastname) LIKE ('%"
+                . $this->search_order_id . "%') OR main_table.customer_email = '" . $this->search_order_id . "')";
         }
         if (!empty($this->search_order_id) && preg_match('/^\d+(?:,\d+)*$/', $this->search_order_id)) {
             $query_where_parts[] = "(main_table.entity_id IN (" . $this->search_order_id . ") OR main_table.increment_id IN (" . $this->search_order_id . "))";
