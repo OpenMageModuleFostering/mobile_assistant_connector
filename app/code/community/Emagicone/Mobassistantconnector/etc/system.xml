@@ -10,7 +10,7 @@
         <mobassistantconnectorinfosec translate="label">
             <label>Mobile Assistant Connector</label>
             <tab>mobassistantconnectorinfo</tab>
-			<frontend_type>text</frontend_type>
+            <frontend_type>text</frontend_type>
             <sort_order>1000</sort_order>
             <show_in_default>1</show_in_default>
             <show_in_website>1</show_in_website>
@@ -36,7 +36,7 @@
                         </status>
                     </fields>
                 </emogeneral>
-				<emoaccess translate="label">
+                <emoaccess translate="label">
                     <label>Access Settings</label>
                     <sort_order>20</sort_order>
                     <show_in_default>1</show_in_default>
@@ -46,7 +46,7 @@
                         <login translate="label comment">
                             <label>Login</label>
                             <frontend_type>text</frontend_type>
-                            <backend_model>emagiconemobassistantconnector/login</backend_model>							
+                            <backend_model>emagiconemobassistantconnector/login</backend_model>                         
                             <sort_order>10</sort_order>
                             <show_in_default>1</show_in_default>
                             <show_in_website>1</show_in_website>
@@ -56,8 +56,8 @@
                         <password translate="label comment">
                             <label>Password</label>
                             <frontend_type>password</frontend_type>
-							<source_model>emagiconemobassistantconnector/defpassword</source_model>
-                            <backend_model>emagiconemobassistantconnector/password</backend_model>							
+                            <source_model>emagiconemobassistantconnector/defpassword</source_model>
+                            <backend_model>emagiconemobassistantconnector/password</backend_model>                          
                             <sort_order>20</sort_order>
                             <show_in_default>1</show_in_default>
                             <show_in_website>1</show_in_website>
@@ -66,14 +66,50 @@
                         </password>
                     </fields>
                 </emoaccess>
-				<emoqr  translate="label comment">
-					<expanded>1</expanded>
+                <emoqr  translate="label comment">
+                    <expanded>1</expanded>
                     <label>QR Code</label>
                     <sort_order>30</sort_order>
                     <show_in_default>1</show_in_default>
                     <show_in_website>1</show_in_website>
                     <show_in_store>1</show_in_store>
+                    <fields>
+                        <qrconfig translate="label comment">
+                            <label>QR Code for Config</label>
+                            <frontend_type>text</frontend_type>
+                            <frontend_model>mobassistantconnector/adminhtml_system_config_form_qrconfig</frontend_model>
+                            <!--<base_url type="media" scope_info="1">connect</base_url>-->
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <!--<comment>Store URL and access details (login and password) for Mobile Assistant Connector are encoded in this QR code. Scan it with special option available on connection settings page of Magento Mobile Assistant to autofill acess settings and connect to your Magento store.</comment>-->
+                        </qrconfig>
+                    </fields>
                 </emoqr>
+                <emoconnectqr  translate="label comment">
+                    <expanded>1</expanded>
+                    <label>Get the App from Google Play</label>
+                    <sort_order>40</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>1</show_in_store>
+                    <fields>
+                        <qrconnect translate="label comment">
+                            <label>QR Code for Application</label>
+                            <frontend_type>text</frontend_type>
+                            <frontend_model>mobassistantconnector/adminhtml_system_config_form_qrcode</frontend_model>
+                            <!--<base_url type="media" scope_info="1">connect</base_url>-->
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <comment>Click or use your device camera to read the QR-code.</comment>
+                        </qrconnect>
+                    </fields>
+                </emoconnectqr>
+            <emoconnectorqr2>
+            </emoconnectorqr2>
             </groups>
         </mobassistantconnectorinfosec>
     </sections>

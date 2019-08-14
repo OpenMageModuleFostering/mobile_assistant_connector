@@ -28,22 +28,34 @@
         var elem_p_span = document.createElement("span");
         var mobassistantconnectorinfosec_emoaccess_password = document.getElementById('mobassistantconnectorinfosec_emoaccess_password');
         var mobassistantconnectorinfosec_emoaccess_login = document.getElementById('mobassistantconnectorinfosec_emoaccess_login');
-        var mobassistantconnectorinfosec_emoqr = document.getElementById("mobassistantconnectorinfosec_emoqr");
+        var mobassistantconnectorinfosec_emoqr = document.getElementById("row_mobassistantconnectorinfosec_emoqr_qrconfig");
+        var mobassistantconnectorinfosec_emoconnectorqr = document.getElementById("mobassistantconnectorinfosec_emoconnectorqr");
+        var mobassistantconnectorinfosec_qr_app = document.getElementById("qr_app");
 
+        // Get last td
+//        var mytable = document.getElementById('tableid');
+        var myrows = document.getElementById('row_mobassistantconnectorinfosec_emoqr_qrconfig');
+//        var lastrow = myrows[myrows.length -1];
+        var mycells = myrows.getElementsByTagName('td');
+        var lastcell = mycells[mycells.length -3];
+
+        mobassistantconnectorinfosec_emoqr = lastcell;
 
         window.password = mobassistantconnectorinfosec_emoaccess_password.value;
         window.login = mobassistantconnectorinfosec_emoaccess_login.value;
 
         mobassistantconnectorinfosec_emoaccess_password.setAttribute("onkeyup" , "changeQRCode()");
         mobassistantconnectorinfosec_emoaccess_login.setAttribute("onkeyup" , "changeQRCode()");
+        mobassistantconnectorinfosec_qr_app.setAttribute("onmouseover" , "qrAppMouseOver()");
+        mobassistantconnectorinfosec_qr_app.setAttribute("onmouseout" , "qrAppMouseOut()");
 
         elem_div0.setAttribute("id", "mobassistantconnectorinfosec_div0");
         mobassistantconnectorinfosec_emoqr.appendChild(elem_div0);
         var mobassistantconnectorinfosec_div0 = document.getElementById("mobassistantconnectorinfosec_div0");
-        mobassistantconnectorinfosec_div0.style.position="relative";
-        mobassistantconnectorinfosec_div0.style.width="300px";
-        mobassistantconnectorinfosec_div0.style.height="300px";
-        mobassistantconnectorinfosec_div0.style.zIndex="800";
+//        mobassistantconnectorinfosec_div0.style.position="relative";
+//        mobassistantconnectorinfosec_div0.style.width="300px";
+//        mobassistantconnectorinfosec_div0.style.height="300px";
+//        mobassistantconnectorinfosec_div0.style.zIndex="800";
 
         elem.src = "<?php echo $qr_url; ?>";
         elem.setAttribute("height", "300");
@@ -51,6 +63,7 @@
         elem.setAttribute("alt", "QR Code");
         elem.setAttribute("id", "mobassistantconnectorinfosec_qr_code");
         mobassistantconnectorinfosec_div0.appendChild(elem);
+        mobassistantconnectorinfosec_div0.style.position="relative";
 
         elem_div_main.setAttribute("class", "form-list");
         elem_div_main.setAttribute("id", "mobassistantconnectorinfosec_div_main");
@@ -59,14 +72,27 @@
 
         elem_p.setAttribute("id", "mobassistantconnectorinfosec_qr_p_note");
         elem_p.setAttribute("class", "note");
+//        elem_p.style.paddingLeft="-125px";
         mobassistantconnectorinfosec_div_main.appendChild(elem_p);
-        mobassistantconnectorinfosec_div_main.style.paddingLeft="25px";
+//        mobassistantconnectorinfosec_div_main.style.paddingLeft="25px";
         mobassistantconnectorinfosec_div_main.style.marginTop="-5px";
 
         elem_p_span.setAttribute("id", "mobassistantconnectorinfosec_qr_p_span_note");
         document.getElementById("mobassistantconnectorinfosec_qr_p_note").appendChild(elem_p_span);
 
         document.getElementById("mobassistantconnectorinfosec_qr_p_span_note").innerHTML = 'Store URL and access details (login and password) for Mobile Assistant Connector are encoded in this QR code. Scan it with special option available on connection settings page of Magento Mobile Assistant to autofill acess settings and connect to your Magento store.';
+    }
+
+    function qrAppMouseOver() {
+        var mobassistantconnectorinfosec_qr_app = document.getElementById("qr_app");
+
+        mobassistantconnectorinfosec_qr_app.style.opacity = "0.7";
+    }
+
+    function qrAppMouseOut() {
+        var mobassistantconnectorinfosec_qr_app = document.getElementById("qr_app");
+
+        mobassistantconnectorinfosec_qr_app.style.opacity = "1";
     }
 
     function changeQRCode() {
@@ -92,8 +118,8 @@
                 mobassistantconnectorinfosec_elem_div_change.innerHTML = "Login details have been changed. Save changes for code to be regenerated";
                 mobassistantconnectorinfosec_elem_div_change.style.position="absolute";
                 mobassistantconnectorinfosec_elem_div_change.style.width="150px";
-                mobassistantconnectorinfosec_elem_div_change.style.top="36%";
-                mobassistantconnectorinfosec_elem_div_change.style.zIndex="1000";
+                mobassistantconnectorinfosec_elem_div_change.style.top="35%";
+//                mobassistantconnectorinfosec_elem_div_change.style.zIndex="1000";
                 mobassistantconnectorinfosec_elem_div_change.style.left="25%";
                 mobassistantconnectorinfosec_elem_div_change.style.color="red";
                 mobassistantconnectorinfosec_elem_div_change.style.textAlign="center";

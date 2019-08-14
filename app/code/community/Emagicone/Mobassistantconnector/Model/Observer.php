@@ -19,7 +19,7 @@
 class Emagicone_Mobassistantconnector_Model_Observer
 {
     public function checkOrder($observer) {
-        Mage::app()->cleanCache();
+
         if(intval(Mage::getStoreConfig('mobassistantconnectorinfosec/emogeneral/status')) == 1) {
             $order = $observer->getEvent()->getOrder();
             $groupId = $_storeId = Mage::app()->getStore(intval($order->getStoreId()))->getGroupId();
@@ -59,17 +59,24 @@ class Emagicone_Mobassistantconnector_Model_Observer
                         'emagicone_mobassistantconnector.log'
                     );
 
+                    // Get devices according to group_id
                     if($deviceId['push_store_group_id'] == $groupId || $deviceId['push_store_group_id'] == -1) {
+                        // New order notification
                         if(intval($deviceId['push_new_order']) == 1  /**  && ( ($order->getCreatedAt() == $order->getUpdatedAt())  || $order->getCustomerIsGuest() == true) */ && $state == 'new' && !is_null($deviceId['push_device_id'])){
-                            array_push($deviceIds, $deviceId);
-//                            $deviceIdsByCCode[$deviceId['push_currency_code']][] = $deviceId['push_device_id'];
-                            $type = 'new_order';
+                            if (!in_array($deviceId['push_device_id'], $deviceIds)) {
+                                $deviceId['setting_num'] = $settingNum;
+                                $deviceIds[$deviceId['push_device_id']] = $deviceId;
+    //                            $deviceIdsByCCode[$deviceId['push_currency_code']][] = $deviceId['push_device_id'];
+                                $type = 'new_order';
+                            }
                         }
+                        // New status notification
                         if(strlen($deviceId['push_order_statuses']) > 0 && (!in_array($deviceId['push_device_id'], $deviceIds)) && !($order->getCreatedAt() == $order->getUpdatedAt()) ) {
                             $statuses =  explode('|', $deviceId['push_order_statuses']);
                             if(in_array($status, $statuses) || intval($deviceId['push_order_statuses']) == -1) {
                                 if (!in_array($deviceId['push_device_id'], $deviceIds)) {
-                                    array_push($deviceIds, $deviceId);
+                                    $deviceId['setting_num'] = $settingNum;
+                                    $deviceIds[$deviceId['push_device_id']] = $deviceId;
 //                                    $deviceIdsByCCode[$deviceId['push_currency_code']][] = $deviceId['push_device_id'];
 //                                    $deviceIdsByCCode[$deviceId['push_currency_code']]['push_device_id'][] = $deviceId['push_device_id'];
 //                                    $deviceIdsByCCode[$deviceId['push_currency_code']]['app_connection_id'][] = $deviceId['app_connection_id'];
@@ -117,11 +124,12 @@ class Emagicone_Mobassistantconnector_Model_Observer
                         $fields = array(
                             'registration_ids' => array(0 => $value['push_device_id']),
                             'data' => array( "message" => array("push_notif_type" => $type, "email" => $order->getCustomerEmail(), 'customer_name' => $order->getCustomerFirstname().'  '.$order->getCustomerLastname(),
-                                "order_id" => $order->getId(), "total" => $total, "store_url" => $storeUrl, "new_status" => $statusLabel, "group_id" => $groupId, 'app_connection_id' => $app_connection_id) ),
+                                "order_id" => $order->getId(), "total" => $total, "store_url" => $storeUrl, "new_status" => $statusLabel, "new_status_code" => $status, "group_id" => $groupId, 'app_connection_id' => $app_connection_id) ),
                         );
 
                         if($type === 'new_order') {
                             unset($fields['data']['new_status']);
+                            unset($fields['data']['new_status_code']);
                         }
 
                         $fields_log = var_export($fields, true);
@@ -138,9 +146,8 @@ class Emagicone_Mobassistantconnector_Model_Observer
 
                         $response = Mage::helper('mobassistantconnector')->sendPushMessage($fields);
 
-                        $deviceArResult = Mage::helper('mobassistantconnector')->proceedGoogleResponse($response, $value['push_device_id'], $deviceIdActions);
-
-                        Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/google_ids', serialize($deviceArResult) );
+                        Mage::helper('mobassistantconnector')->proceedGoogleResponse($response, array('device_id' => $value['push_device_id'],
+                                                                                                                        'app_connection_id' => $value['app_connection_id']));
 
                         $d_r = Mage::helper('core')->jsonDecode($response, Zend_Json::TYPE_OBJECT);
 
@@ -174,6 +181,7 @@ class Emagicone_Mobassistantconnector_Model_Observer
                 foreach ($deviceIdActions as $settingNum => $deviceId) {
                     if(($groupId == $deviceId['push_store_group_id']) || $deviceId['push_store_group_id'] == -1) {
                         if(intval($deviceId['push_new_customer'] == 1)) {
+                            $deviceId['setting_num'] = $settingNum;
                             array_push($deviceIds, $deviceId);
                         }
                     }
@@ -207,14 +215,15 @@ class Emagicone_Mobassistantconnector_Model_Observer
                     $response = Mage::helper('mobassistantconnector')->sendPushMessage($fields);
 
     //                $success = true;
-                    $deviceArResult = Mage::helper('mobassistantconnector')->proceedGoogleResponse($response, $deviceIds, $deviceIdActions);
+                    Mage::helper('mobassistantconnector')->proceedGoogleResponse($response, array('device_id' => $value['push_device_id'],
+                                                                                                                        'app_connection_id' => $value['app_connection_id']));
 
-                    Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/google_ids', serialize($deviceArResult) );
+//                    Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/google_ids', serialize($deviceArResult) );
 
                     $d_r = Mage::helper('core')->jsonDecode($response, Zend_Json::TYPE_OBJECT);
 
                     Mage::log(
-                        "Google response: (multicast_id = {$d_r->multicast_id}, success = {$d_r->success}, failure = {$d_r->failure}, canonical_ids = {$d_r->canonical_ids})",
+                        "Google response: (multicast_id = {$d_r->multicast_id}, success = {$d_r->success}, failure = {$d_r->failure}, canonical_ids = {$d_r->canonical_ids}, results = {$d_r->results})",
                         null,
                         'emagicone_mobassistantconnector.log'
                     );

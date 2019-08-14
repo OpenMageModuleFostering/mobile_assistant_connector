@@ -34,19 +34,20 @@ class Emagicone_Mobassistantconnector_Helper_Data extends Mage_Core_Helper_Abstr
         $result = curl_exec( $ch );
 
         if(curl_errno($ch)) {
-			Mage::log(
-				"Push message error while sending CURL request: {$result}",
-				null,
-				'emagicone_mobassistantconnector.log'
-			);
+            Mage::log(
+                "Push message error while sending CURL request: {$result}",
+                null,
+                'emagicone_mobassistantconnector.log'
+            );
         }
 
         curl_close($ch);
-		
-		return $result;
+        
+        return $result;
     }
 
     public function pushSettingsUpgrade() {
+        Mage::app()->getCacheInstance()->cleanType('config');
         $deviceIds = Mage::getStoreConfig('mobassistantconnectorinfosec/access/google_ids');
 
         if(strlen($deviceIds) > 0) {
@@ -88,7 +89,7 @@ class Emagicone_Mobassistantconnector_Helper_Data extends Mage_Core_Helper_Abstr
         return $deviceIds;
     }
 
-    public function proceedGoogleResponse($response, $deviceIds, $deviceIdActions) {
+    public function proceedGoogleResponse($response, $current_device) {
         if ($response) {
             $json = json_decode($response, true);
             if (function_exists('json_last_error')) {
@@ -100,49 +101,50 @@ class Emagicone_Mobassistantconnector_Helper_Data extends Mage_Core_Helper_Abstr
         else {
             $json = array();
         }
+        Mage::app(0);
+
+        $deviceIdActions = Mage::helper('mobassistantconnector')->pushSettingsUpgrade();
+
+        $currentDeviceId = $current_device['device_id'];
+        $currentAppConnectionId = $current_device['app_connection_id'];
 
         $failure = isset($json['failure']) ? $json['failure'] : null;
 
         $canonicalIds = isset($json['canonical_ids']) ? $json['canonical_ids'] : null;
 
         if ($failure || $canonicalIds) {
-            $results = isset($json['results']) ? $json['results'] : array();
-            foreach($results as $id => $result) {
-                $newRegId = isset($result['registration_id']) ? $result['registration_id'] : null;
-                $error = isset($result['error']) ? $result['error'] : null;
-                if ($newRegId) {
-                    // It's duplicated deviceId
-                    if(!is_array($deviceIds)) {
-                        $deviceIds = array($deviceIds);
-                    }
-                    if(in_array($newRegId, $deviceIds) && $newRegId != $deviceIds[$id]) {
-                        // Loop through the devices and delete old
-                        foreach ($deviceIdActions as $settingNum => $deviceId) {
-                            if($deviceId['push_device_id'] == $deviceIds[$id]) {
-                                unset($deviceIdActions[$settingNum]);
-                            }
-                        }
-                        // Need to update old deviceId
-                    } else if(!in_array($newRegId, $deviceIds)) {
-                        foreach ($deviceIdActions as $settingNum => $deviceId) {
-                            if($deviceId['push_device_id'] == $deviceIds[$id]) {
-                                $deviceIdActions[$settingNum]['push_device_id'] = $newRegId;
-                            }
+            $result = isset($json['results'][0]) ? $json['results'][0] : array();
+
+            $newRegId = isset($result['registration_id']) ? $result['registration_id'] : null;
+            $error = isset($result['error']) ? $result['error'] : null;
+            if ($newRegId) {
+                // Need to update old deviceId
+                if ($newRegId !== $currentDeviceId) {
+                    foreach ($deviceIdActions as $settingNum => $device) {
+                        // Delete duplicated push configs with new RegistrationId
+                        if ($device['app_connection'] == $currentAppConnectionId && $device['push_device_id'] == $newRegId) {
+                            unset($deviceIdActions[$settingNum]);
+                        // Renew push config with new RegistrationId
+                        } elseif ($device['push_device_id'] == $currentDeviceId) {
+                            $deviceIdActions[$settingNum]['push_device_id'] = $newRegId;
                         }
                     }
                 }
-                else if ($error) {
-                    // Unset not registered device id
-                    if ($error == 'NotRegistered' || $error == 'InvalidRegistration') {
-                        foreach ($deviceIdActions as $settingNum => $deviceId) {
-                            if($deviceId['push_device_id'] == $deviceIds[$id]) {
-                                unset($deviceIdActions[$settingNum]);
-                            }
+            }
+            else if ($error) {
+                // Unset not registered device id
+                if ($error == 'NotRegistered' || $error == 'InvalidRegistration') {
+                    foreach ($deviceIdActions as $settingNum => $device) {
+                        if($device['push_device_id'] == $currentDeviceId) {
+                            unset($deviceIdActions[$settingNum]);
                         }
                     }
                 }
             }
         }
+
+        Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/google_ids', serialize($deviceIdActions));
+        Mage::app()->init();
 
         return $deviceIdActions;
     }

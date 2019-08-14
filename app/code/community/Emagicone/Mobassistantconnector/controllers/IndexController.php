@@ -28,11 +28,11 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $hash_only;
     private $session_key;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '94';
+    const MB_VERSION = '95';
 
     public function indexAction()
     {
-        Mage::app()->cleanCache();
+        // Mage::app()->cleanCache();
         if (intval(Mage::getStoreConfig('mobassistantconnectorinfosec/emogeneral/status')) != 1) $this->generate_output('module_disabled');
 
         $this->loadLayout()->renderLayout();
@@ -123,6 +123,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             'search_val'            => 'STR',
             'statuses'              => 'STR',
             'sort_by'               => 'STR',
+            'order_by'        => 'STR',
             'last_order_id'         => 'STR',
             'product_id'            => 'INT',
             'get_statuses'          => 'INT',
@@ -153,6 +154,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             'search_carts'          => 'STR',
             'param'                 => 'STR',
             'new_value'             => 'STR',
+            'group_by_product_id'   => 'INT',
             'show_unregistered_customers' => 'INT',
         ));
 
@@ -166,6 +168,14 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
         if (empty($this->currency_code) || strval($this->currency_code) == 'base_currency' || strval($this->currency_code) == 'not_set') {
             $this->currency_code = $this->def_currency;
+        }
+
+        if (empty($this->page)) {
+            $this->page = 1;
+        }
+
+        if (empty($this->show)) {
+            $this->show = 20;
         }
 
         if ($this->call_function == 'test_config') {
@@ -1023,12 +1033,14 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $default_currency_sign = $this->_price_format($this->def_currency, 1, $sum, $this->currency_code, true);
 
         if ($d <= 0) $d = 1;
-        $average['avg_sum_orders'] = number_format($average['sum_orders'] / $d, 2, '.', ' ');
+//        $average['avg_sum_orders'] = number_format($average['sum_orders'] / $d, 2, '.', ' ');
+        $average['avg_sum_orders'] = $this->_price_format($this->def_currency, 1, $average['sum_orders'] / $d, $this->currency_code, false);
         $average['avg_orders'] = number_format($average['tot_orders'] / $d, 1, '.', ' ');
         $average['avg_customers'] = number_format($average['tot_customers'] / $d, 1, '.', ' ');
 
         if ($average['tot_customers'] > 0) {
-            $average['avg_cust_order'] = number_format($average['sum_orders'] / $average['tot_customers'], 1, '.', ' ');
+//            $average['avg_cust_order'] = number_format($average['sum_orders'] / $average['tot_customers'], 1, '.', ' ');
+            $average['avg_cust_order'] = $this->_price_format($this->def_currency, 1, $average['sum_orders'] / $average['tot_customers'], $this->currency_code, false);
         }
         $average['sum_orders'] = number_format($average['sum_orders'], 2, '.', ' ');
         $average['tot_customers'] = number_format($average['tot_customers'], 1, '.', ' ');
@@ -1105,20 +1117,35 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
         switch ($this->sort_by) {
             case 'name':
-                $ordersCollection->getSelect()->order(array('main_table.customer_firstname ASC'));
-                $ordersCollection->getSelect()->order(array('main_table.customer_lastname ASC'));
-                $ordersStatsCollection->getSelect()->order(array('main_table.customer_firstname ASC'));
-                $ordersStatsCollection->getSelect()->order(array('main_table.customer_lastname ASC'));
+                $dir = $this->get_sort_direction('ASC');
+                $ordersCollection->getSelect()->order(array('main_table.customer_firstname' . $dir));
+                $ordersCollection->getSelect()->order(array('main_table.customer_lastname' . $dir));
+                $ordersStatsCollection->getSelect()->order(array('main_table.customer_firstname' . $dir));
+                $ordersStatsCollection->getSelect()->order(array('main_table.customer_lastname' . $dir));
                 break;
             case 'date':
-                $ordersCollection->getSelect()->order(array('main_table.created_at DESC'));
-                $ordersStatsCollection->getSelect()->order(array('main_table.created_at DESC'));
+                $dir = $this->get_sort_direction('DESC');
+                $ordersCollection->getSelect()->order(array('main_table.created_at' . $dir));
+                $ordersStatsCollection->getSelect()->order(array('main_table.created_at' . $dir));
                 break;
             case 'id':
-                $ordersCollection->getSelect()->order(array('main_table.entity_id DESC'));
-                $ordersStatsCollection->getSelect()->order(array('main_table.entity_id DESC'));
+                $dir = $this->get_sort_direction('DESC');
+                $ordersCollection->getSelect()->order(array('main_table.entity_id' . $dir));
+                $ordersStatsCollection->getSelect()->order(array('main_table.entity_id' . $dir));
+                break;
+            case 'total':
+                $dir = $this->get_sort_direction('DESC');
+                $ordersCollection->getSelect()->order(array('total_paid' . $dir));
+                $ordersStatsCollection->getSelect()->order(array('total_paid' . $dir));
+                break;
+            case 'qty':
+                $dir = $this->get_sort_direction('DESC');
+                $ordersCollection->getSelect()->order(array('main_table.total_item_count' . $dir));
+                $ordersStatsCollection->getSelect()->order(array('main_table.total_item_count' . $dir));
                 break;
         }
+
+//        echo($ordersCollection->getSelect()->__toString());die();
 
         if (strlen($this->statuses) > 0) {
             $this->statuses = '\'' . str_replace('|', '\',\'', $this->statuses) . '\'';
@@ -1215,6 +1242,16 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             "max_date" => $max_date,
             "min_date" => $min_date,
             "orders_status" => $orders_status);
+    }
+
+    protected function get_sort_direction($default_direction = 'DESC') {
+        if (isset($this->order_by) && !empty($this->order_by)) {
+            $direction = $this->order_by;
+        } else {
+            $direction = $default_direction;
+        }
+
+        return ' ' . $direction;
     }
 
     protected function get_orders_info()
@@ -1797,7 +1834,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         if (isset($this->store_group_id)) {
             $this->group_id = $this->store_group_id;
         }
-        
+
         if (!$this->group_id) {
             $this->group_id = null;
         }
@@ -1929,14 +1966,21 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
         switch ($this->sort_by) {
             case 'name':
-                $customerCollection->getSelect()->order(array('firstname ASC'));
-                $customerCollection->getSelect()->order(array('lastname ASC'));
+                $dir = $this->get_sort_direction('ASC');
+                $customerCollection->getSelect()->order(array('firstname' . $dir));
+                $customerCollection->getSelect()->order(array('lastname' . $dir));
                 break;
             case 'date':
-                $customerCollection->getSelect()->order(array('e.created_at DESC'));
+                $dir = $this->get_sort_direction('DESC');
+                $customerCollection->getSelect()->order(array('e.created_at' . $dir));
                 break;
             case 'id':
-                $customerCollection->getSelect()->order(array('e.entity_id DESC'));
+                $dir = $this->get_sort_direction('DESC');
+                $customerCollection->getSelect()->order(array('e.entity_id' . $dir));
+                break;
+            case 'qty':
+                $dir = $this->get_sort_direction('DESC');
+                $customerCollection->getSelect()->order(array('count_ords' . $dir));
                 break;
         }
 
@@ -2093,6 +2137,27 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $collection->addAttributeToSelect('*');
 
         $collection->addAttributeToSelect('name');
+        $collection->addAttributeToSelect('status', 'left');
+//        $collection->addAttributeToSelect('price', 'left');
+//        $collection->addAttributeToSelect('qty', 'left');
+
+        $collection->getSelect()->joinLeft(
+            ['et_product' => Mage::getConfig()->getTablePrefix() . 'eav_entity_type'],
+                "et_product.entity_type_code = 'catalog_product'",
+                []
+             )
+            ->joinLeft(
+                ['a_price' => Mage::getConfig()->getTablePrefix() . 'eav_attribute'],
+                    "a_price.entity_type_id = et_product.entity_type_id AND a_price.attribute_code = 'price'",
+                []
+            )
+            ->joinLeft(
+                ['p_price' => Mage::getConfig()->getTablePrefix() . 'catalog_product_entity_decimal'],
+                    "p_price.entity_id = e.entity_id AND p_price.attribute_id = a_price.attribute_id AND p_price.store_id = 0",
+                ['p_price.value AS price']
+            );
+
+
         $collection->joinField(
             'qty',
             'cataloginventory/stock_item',
@@ -2153,12 +2218,28 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
         switch ($this->sort_by) {
             case 'name':
-                $collection->getSelect()->order(array('name'));
+                $dir = $this->get_sort_direction('DESC');
+                $collection->getSelect()->order(array('name' . $dir));
                 break;
             case 'id':
-                $collection->getSelect()->order(array('e' . '.entity_id DESC'));
+                $dir = $this->get_sort_direction('DESC');
+                $collection->getSelect()->order(array('e' . '.entity_id' . $dir));
+                break;
+            case 'qty':
+                $dir = $this->get_sort_direction('DESC');
+                $collection->getSelect()->order(array('at_qty.qty' . $dir));
+                break;
+            case 'price':
+                $dir = $this->get_sort_direction('DESC');
+                $collection->getSelect()->order(array('price' . $dir));
+                break;
+            case 'status':
+                $dir = $this->get_sort_direction('DESC');
+                $collection->getSelect()->order(array('status' . $dir));
                 break;
         }
+
+//                echo($collection->getSelect()->__toString());die();
 
         $products_count = $collection->getSize();
 
@@ -2166,7 +2247,13 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $collection->getSelect()->limit($this->show, ($this->page - 1) * $this->show);
         }
 
+        $statusOptions = Mage::getSingleton('catalog/product_status')->getOptionArray();
+        $stockOptions = $this->getStockOptions();
+
         foreach ($collection as $product) {
+            $status = $product->getStatus();
+            $isInStock = $product->getStockItem()->getIsInStock();
+
             $productFinal['main_id'] = $product->getEntityId();
             $productFinal['product_id'] = $product->getEntityId();
             $productFinal['name'] = $product->getName();
@@ -2192,6 +2279,22 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $pArr['price'] = $product->getPrice();
             $pArr['spec_price'] = $product->getSpecialPrice();
 
+            /*if ($status == 1) {
+                $productFinal['status'] = 'Enabled';
+            } else {
+                $productFinal['status'] = 'Disabled';
+            }
+            if ($productFinal['quantity'] < 0 || $product->getIsInStock() == 0) {
+                $productFinal['stock'] = 'Out of Stock';
+            } else {
+                $productFinal['status'] = 'In Stock';
+            }*/
+            $productFinal['status_code'] = $status;
+            $productFinal['status_title'] = $statusOptions[$status];
+
+            $productFinal['stock_code'] = $isInStock;
+            $productFinal['stock_title'] = $stockOptions[$isInStock];
+
             $productFinal['price'] = $this->_price_format($this->def_currency, 1, $pArr['price'], $this->currency_code);
 
             if ($pArr['spec_price'] > 0 && $pArr['spec_price'] != '') {
@@ -2207,7 +2310,187 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             'products' => $products);
     }
 
+    protected function search_grouped_ordered_products() {
+        $ordered_products = array();
+        $max_date = "";
+        $min_date = "";
+        $offset = $this->_get_timezone_offset();
+        //        $storeId = Mage::app()->getStore()->getId();
+        $salesItemCollection = Mage::getModel("sales/order_item")->getCollection();
+//            ->addFieldToSelect(array('product_id', 'name', 'sku'))
+        $salesItemCollection->getSelect()->columns(array(
+          'qty_ordered_product'  => 'SUM(main_table.qty_ordered)',
+          'price_total'          => 'SUM(main_table.base_price - main_table.base_discount_amount)',
+          'orig_price'           => 'SUM(main_table.base_price - main_table.base_discount_amount) * main_table.qty_ordered'
+            )
+        );
+//        $salesCollection->getSelect()->columns("SUM(main_table.qty_ordered)");
+//        $salesCollection->getSelect()->columns("SUM(main_table.base_price - main_table.base_discount_amount)");
+        $salesItemCollection->getSelect()->group('product_id');
+
+        $orderTableName = Mage::getSingleton('core/resource')->getTableName('sales/order');
+        $storeTableName = Mage::getSingleton('core/resource')->getTableName('core/store');
+
+        $salesItemCollection->getSelect()
+            ->joinLeft(
+                array('order' => $orderTableName),
+                "`order`.entity_id = main_table.order_id",
+                array());
+
+        if (!empty($this->group_id)) {
+            if ($this->is_group_exists($this->group_id)) {
+                $salesItemCollection->getSelect()
+                    ->joinLeft(
+                        array('cs' => $storeTableName),
+                        "cs.store_id = `order`.store_id",
+                        array());
+                $salesItemCollection->getSelect()->where(new Zend_Db_Expr("cs.group_id = " . $this->group_id));
+            }
+        }
+
+        $salesItemCollection->getSelect()->columns(array('created_order_at' => new Zend_Db_Expr ("CONVERT_TZ(`order`.created_at, '+00:00', '" . $offset . "' )")));
+
+        if (strlen($this->val) > 0) {
+            $filter_cols = array();
+            $filters = array();
+            if (strlen($this->params) > 0) {
+                $this->params = explode("|", $this->params);
+                foreach ($this->params as $param) {
+                    switch ($param) {
+                        case 'pr_id':
+                            $filter_cols[] = 'main_table' . '.product_id';
+                            $filters[] = array('eq' => $this->val);
+                            break;
+                        case 'pr_sku':
+                            $filter_cols[] = 'main_table' . '.sku';
+                            $filters[] = array('like' => '%' . $this->val . '%');
+                            break;
+                        case 'pr_name':
+                            $filter_cols[] = 'main_table' . '.name';
+                            $filters[] = array('like' => '%' . $this->val . '%');
+                            break;
+                        case 'order_id':
+                            $filter_cols[] = 'main_table' . '.order_id';
+                            $filters[] = array('eq' => $this->val);
+                            break;
+                    }
+                }
+                $salesItemCollection->addFieldToFilter($filter_cols, $filters);
+            }
+        }
+
+        if (!empty($this->products_from)) {
+            $this->products_from .= " 00:00:00";
+            $date_filter['from'] = $this->products_from;
+        }
+
+        if (!empty($this->products_to)) {
+            $this->products_to .= " 23:59:59";
+            $date_filter['to'] = $this->products_to;
+        }
+
+        $date_filter['date'] = true;
+
+        if (!empty($this->products_from) || !empty($this->products_to)) {
+            $salesItemCollection->addFieldToFilter('order' . '.created_at',
+                $date_filter);
+        }
+
+        if (!empty($this->statuses)) {
+            $this->statuses = explode('|', $this->statuses);
+            $salesItemCollection->addFieldToFilter('order' . '.status',
+                array('in' => array($this->statuses)));
+        }
+
+        switch ($this->sort_by) {
+            case 'name':
+                $dir = $this->get_sort_direction('ASC');
+                $salesItemCollection->getSelect()->order(array('main_table' . '.name' . $dir));
+                break;
+            case 'id':
+                $dir = $this->get_sort_direction('DESC');
+                $salesItemCollection->getSelect()->order(array('main_table' . '.product_id' . $dir));
+                break;
+            case 'qty':
+                $dir = $this->get_sort_direction('DESC');
+                $salesItemCollection->getSelect()->order(array('qty_ordered_product' . $dir));
+                break;
+            case 'total':
+                $dir = $this->get_sort_direction('DESC');
+                $salesItemCollection->getSelect()->order(array('orig_price' . $dir));
+                break;
+        }
+
+        $size = $salesItemCollection->count();
+//        echo($salesItemCollection->getSelect()->__toString());die();
+
+        if (!empty($this->page) && !empty($this->show)) {
+            $salesItemCollection->clear();
+            $salesItemCollection->getSelect()->limit($this->show, ($this->page - 1) * $this->show);
+        }
+
+        $ordersDates = $salesItemCollection->getColumnValues('created_order_at');
+        $ordersDates = array_map("strtotime", $ordersDates);
+
+        if ($size > 0) {
+            $max_date = date("n/j/Y", max(array_values($ordersDates)));
+            $min_date = date("n/j/Y", min(array_values($ordersDates)));
+        }
+
+        foreach ($salesItemCollection as $item) {
+
+//            $product = Mage::getModel('catalog/product')->load($item->getProductId());
+
+            $thumbnail = (string)Mage::helper('catalog/image')
+                ->init($item->getProduct(), 'image')
+                ->constrainOnly(TRUE)
+                ->keepAspectRatio(TRUE)
+                ->resize(150, null);
+
+            if (($thumbnail == 'no_selection') || (!isset($thumbnail))) {
+                $thumbnail = '';
+            }
+
+            $ordered_products[] = array(
+                'item_id'       => $item->getItemId(),
+                'product_id'    => $item->getProductId(),
+                'name'          => $item->getName(),
+                'sku'           => $item->getSku(),
+                'main_id'       => $item->getItemId(),
+                'price'         => $this->_price_format($this->def_currency, 1, $item->getOrigPrice(), $this->currency_code),
+                'quantity'      => (int)$item->getQtyOrderedProduct(),
+                'type_id'       => ucfirst($item->getProductType()),
+                'iso_code'      => $this->def_currency,
+//                'status'        => $item->getStatus(),
+//                'created_at'    => $item->getCreatedAt(),
+//                'order_id'      => $item->getOrderId(),
+                'thumbnail'     => $thumbnail,
+            );
+        }
+
+
+
+        return array(
+            "products_count" => $size,
+            "products" => $ordered_products,
+            "max_date" => $max_date,
+            "min_date" => $min_date
+        );
+    }
+
     protected function search_products_ordered()
+    {
+        if (isset($this->group_by_product_id) && !empty($this->group_by_product_id)) {
+            $result = $this->search_grouped_ordered_products();
+        } else {
+            // $result = $this->search_grouped_ordered_products();
+           $result = $this->search_products_ordered_atomic();
+        }
+
+        return $result;
+    }
+
+    protected function search_products_ordered_atomic()
     {
 
         $ordered_products = array();
@@ -2304,18 +2587,30 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
         switch ($this->sort_by) {
             case 'name':
-                $salesCollection->getSelect()->order(array('main_table' . '.name ASC'));
+                $dir = $this->get_sort_direction('ASC');
+                $salesCollection->getSelect()->order(array('main_table' . '.name' . $dir));
                 break;
             case 'id':
-                $salesCollection->getSelect()->order(array('main_table' . '.product_id DESC'));
+                $dir = $this->get_sort_direction('DESC');
+                $salesCollection->getSelect()->order(array('main_table' . '.product_id' . $dir));
+                break;
+            case 'qty':
+                $dir = $this->get_sort_direction('DESC');
+                $salesCollection->getSelect()->order(array('quantity' . $dir));
+                break;
+            case 'total':
+                $dir = $this->get_sort_direction('DESC');
+                $salesCollection->getSelect()->order(array('price' . $dir));
                 break;
         }
+
+//        echo($salesCollection->getSelect()->__toString());die();
 
         if (!empty($this->page) && !empty($this->show)) {
             $salesCollection->getSelect()->limit($this->show, ($this->page - 1) * $this->show);
         }
 
-        $ordersDates = $salesCollection->getColumnValues('order' . '.created_at');
+        $ordersDates = $salesCollection->getColumnValues('created_at');
         $ordersDates = array_map("strtotime", $ordersDates);
 
         if ($salesCollection->count() > 0) {
@@ -2365,7 +2660,6 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         );
     }
 
-
     protected function get_products_info()
     {
         $row = null;
@@ -2382,6 +2676,11 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $product = Mage::getModel("catalog/product")->load($this->product_id);
 
             if ($product) {
+                $statusOptions = Mage::getSingleton('catalog/product_status')->getOptionArray();
+                $stockOptions = $this->getStockOptions();
+                $status = $product->getStatus();
+                $isInStock = $product->getStockItem()->getIsInStock();
+
                 // Get count of product orders
                 $salesCollection = Mage::getModel("sales/order_item")->getCollection()
                     ->addFieldToSelect(array('product_id', 'name', 'sku'));
@@ -2399,8 +2698,11 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                     $row['quantity'] = intval($product->getQuantity());
                 }
                 $row['sku'] = $product->getSku();
-                $row['active'] = $product->getStatus();
-                $row['status'] = $product->getStatus();
+//                $row['active'] = $product->getStatus();
+                $row['status_code'] = $status;
+                $row['status_label'] = $statusOptions[$status];
+                $row['stock_code'] = $isInStock;
+                $row['stock_label'] = $stockOptions[$isInStock];
 //                $row['descr'] = $product->getDescription();
 //                $row['short_desc'] = $product->getShortDescription();
                 $row['image'] = $product->getImage();
@@ -2415,8 +2717,34 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                     unset($row['spec_price']);
                 }
 
-                $row['id_image'] = (string)Mage::helper('catalog/image')->init($product, 'image')->constrainOnly(TRUE)->keepAspectRatio(TRUE)->keepFrame(FALSE)->resize(256);
-                $row['id_image_large'] = (string)Mage::helper('catalog/image')->init($product, 'image')->constrainOnly(TRUE)->keepAspectRatio(TRUE)->keepFrame(FALSE)->resize(800);
+                $images = array();
+//                $mediaGallery = Mage::getModel('catalog/product')->load($product->getId())->getMediaGalleryImages();
+                $mediaGallery = $product->getMediaGallery();
+                if (is_array($mediaGallery['images'])) {
+                    foreach ($mediaGallery['images'] as $image) {
+                        if ($image['disabled']) {
+//                            continue;
+                        }
+                        $small = Mage::helper('catalog/image')->init($product, 'image', $image['file'])->resize(300)
+                            ->keepAspectRatio(true)->constrainOnly(true)->keepFrame(false);
+                        $small_image = $small->__toString();
+                        $large = Mage::helper('catalog/image')->init($product, 'image', $image['file'])->resize(800)
+                            ->keepAspectRatio(true)->constrainOnly(true)->keepFrame(false);
+                        $large_image = $large->__toString();
+                        $images[] = ['large' => $large_image,
+                                     'small' => $small_image
+                        ];
+                    }
+                }
+
+                $row['images'] = $images;
+
+                // For compatibility with old app version
+                if (count($images) > 0) {
+                    $row['id_image'] = $images[0]['small'];
+                    $row['id_image_large'] = $images[0]['large'];
+                }
+
             }
 
             return $row;
@@ -2522,12 +2850,15 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     {
         $abandoned_carts = array();
         $offset = $this->_get_timezone_offset();
+        $cartsTotal = 0;
+        $cartsCount = 0;
 
 
         $storeTableName = Mage::getSingleton('core/resource')->getTableName('core/store');
         $customerTableName = Mage::getSingleton('core/resource')->getTableName('customer_entity');
 
         $quotes = Mage::getResourceModel('sales/quote_collection');
+        $quotesExtra = Mage::getResourceModel('sales/quote_collection');
 
         if (!isset($this->group_id)) {
             if ($this->is_group_exists($this->group_id)) {
@@ -2537,6 +2868,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                         "cs.store_id = main_table.store_id",
                         array());
                 $quotes->getSelect()->where(new Zend_Db_Expr("cs.group_id = " . $this->group_id));
+                $quotesExtra->getSelect()->where(new Zend_Db_Expr("cs.group_id = " . $this->group_id));
             }
         }
 
@@ -2545,29 +2877,40 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         }
         if (!empty($this->search_val) && preg_match('/^\d+(?:,\d+)*$/', $this->search_val)) {
             $quotes->addFieldToFilter('main_table.entity_id', array('eq' => intval($this->search_val)));
+            $quotesExtra->addFieldToFilter('main_table.entity_id', array('eq' => intval($this->search_val)));
         } else if (!empty($this->search_val)) {
             $quotes->getSelect()->where("main_table.`customer_email` LIKE '%" . $this->search_val . "%' OR main_table.`customer_firstname` LIKE '%" . $this->search_val . "%' OR main_table.`customer_lastname` LIKE '%" . $this->search_val . "%' OR CONCAT(`customer_firstname`, ' ', `customer_lastname`) LIKE '%" . $this->search_val . "%'");
+            $quotesExtra->getSelect()->where("main_table.`customer_email` LIKE '%" . $this->search_val . "%' OR main_table.`customer_firstname` LIKE '%" . $this->search_val . "%' OR main_table.`customer_lastname` LIKE '%" . $this->search_val . "%' OR CONCAT(`customer_firstname`, ' ', `customer_lastname`) LIKE '%" . $this->search_val . "%'");
         }
 
         if (!empty($this->carts_from)) {
             $this->carts_from = Mage::getModel('core/date')->timestamp(strtotime($this->carts_from));
             $this->carts_from = date('Y-m-d H:i:s', $this->carts_from);
             $quotes->addFieldToFilter('main_table.updated_at', array('from' => $this->carts_from));
+            $quotesExtra->addFieldToFilter('main_table.updated_at', array('from' => $this->carts_from));
         }
 
         if (!empty($this->carts_to)) {
             $this->carts_to = Mage::getModel('core/date')->timestamp(strtotime($this->carts_to));
             $this->carts_to = date('Y-m-d H:i:s', $this->carts_to);
             $quotes->addFieldToFilter('main_table.updated_at', array('to' => $this->carts_to));
+            $quotesExtra->addFieldToFilter('main_table.updated_at', array('to' => $this->carts_to));
         }
 
         // if (!empty($this->with_customer_details)) {
         $quotes->addFieldToFilter('main_table.customer_email', array('notnull' => true));
+        $quotesExtra->addFieldToFilter('main_table.customer_email', array('notnull' => true));
         // }
 
         if (empty($this->show_unregistered_customers)) {
             $quotes->addFieldToFilter('main_table.customer_id', array('notnull' => true));
+            $quotesExtra->addFieldToFilter('main_table.customer_id', array('notnull' => true));
             $quotes->getSelect()
+                ->joinInner(
+                    array('c' => $customerTableName),
+                    "c.entity_id = main_table.customer_id",
+                    array());
+            $quotesExtra->getSelect()
                 ->joinInner(
                     array('c' => $customerTableName),
                     "c.entity_id = main_table.customer_id",
@@ -2575,10 +2918,14 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         }
 
         $quotes->addFieldToFilter('main_table.is_active', array('eq' => 1));
+        $quotesExtra->addFieldToFilter('main_table.is_active', array('eq' => 1));
         $quotes->addFieldToFilter('main_table.items_count', array('gt' => 0));
+        $quotesExtra->addFieldToFilter('main_table.items_count', array('gt' => 0));
+        $quotes->getSelect()->columns(array('customer_name' => "CONCAT(main_table.customer_firstname, ' ', main_table.customer_lastname)"));
 
 //        $quotes->load();
-        $cart_total_res['total_sum'] = $this->_price_format($this->def_currency, 1, array_sum($quotes->getColumnValues('base_grand_total')), $this->currency_code);
+        // $cart_total_res['total_sum'] = $this->_price_format($this->def_currency, 1, array_sum($quotes->getColumnValues('base_grand_total')), $this->currency_code);
+        $cart_total_res['total_sum'] = 0;
         $cart_total_res['total_count'] = $quotes->getSize();
 //        $resource = Mage::getSingleton('core/resource');
 //        $readConnection = $resource->getConnection('core_read');
@@ -2593,19 +2940,36 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
         switch ($this->sort_by) {
             case 'id':
-                $quotes->getSelect()->order(array('main_table' . '.entity_id DESC'));
+                $dir = $this->get_sort_direction('DESC');
+                $quotes->getSelect()->order(array('main_table' . '.entity_id' . $dir));
                 break;
             case 'date':
-                $quotes->getSelect()->order(array('main_table' . '.updated_at DESC'));
+                $dir = $this->get_sort_direction('DESC');
+                $quotes->getSelect()->order(array('main_table' . '.updated_at' . $dir));
                 break;
             case 'name':
-                $quotes->getSelect()->order(array('main_table' . '.customer_firstname ASC'));
+                $dir = $this->get_sort_direction('ASC');
+                // $quotes->getSelect()->order(array('main_table' . '.customer_firstname' . $dir));
+                $quotes->getSelect()->order(array('customer_name ' . $dir));
+                break;
+            case 'qty':
+                $dir = $this->get_sort_direction('ASC');
+                // $quotes->getSelect()->order(array('quantity' . $dir));
+                $quotes->getSelect()->order(array('main_table.items_count' . $dir));
+                break;
+            case 'total':
+                $dir = $this->get_sort_direction('ASC');
+                $quotes->getSelect()->order(array('base_subtotal_with_discount' . $dir));
                 break;
             default:
-                $quotes->getSelect()->order(array('main_table' . '.updated_at DESC'));
+                $dir = $this->get_sort_direction('DESC');
+                $quotes->getSelect()->order(array('main_table' . '.updated_at' . $dir));
                 break;
         }
         $carts = array();
+
+       // echo($quotes->getSelect()->__toString());die();
+
 //        $collection->prepareForAbandonedReport();
         foreach ($quotes as $quote) {
             if (empty($this->show_unregistered_customers)) {
@@ -2650,7 +3014,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         }
 
         // Sort by name
-        if ($this->sort_by == 'name') {
+        /*if ($this->sort_by == 'name') {
             foreach ($carts as $cart) {
                 foreach ($cart as $key => $value) {
                     if (!isset($sortArray[$key])) {
@@ -2663,11 +3027,21 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $orderby = "customer"; //change this to whatever key you want from the array
 
             array_multisort($sortArray[$orderby], SORT_ASC, $carts);
+        }*/
+        
+        $quotesExtra->getSelect()->columns(array('total' => 'SUM(main_table.base_grand_total)', 'count' => 'COUNT(main_table.entity_id)'));
+        
+        foreach ($quotesExtra as $data) {
+            $cartsTotal = $data->getTotal();
+            $cartsCount = $data->getCount();
         }
-
+        
         return array('abandoned_carts' => $carts,
-            'abandoned_carts_count' => $cart_total_res['total_count'],
-            'abandoned_carts_total' => $cart_total_res['total_sum'],
+            // 'abandoned_carts_count' => $cart_total_res['total_count'],
+            'abandoned_carts_count' => $cartsCount,
+            // 'abandoned_carts_total' => $cart_total_res['total_sum'],
+            // 'abandoned_carts_total' => $cartsTotal,
+            'abandoned_carts_total' => $this->_price_format($this->def_currency, 1, $cartsTotal, $this->currency_code)
         );
 
         return $quote;
@@ -2857,6 +3231,18 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             'cart_products' => $cart_products,
             'cart_products_count' => $cart_info['cart_count_products'],
         );
+    }
+
+    private function getStockOptions() {
+        $stockOptions = array();
+        $options = Mage::getSingleton('Mage_CatalogInventory_Model_Source_Stock')->toOptionArray();
+        $count = count($options);
+
+        for ($i = 0; $i < $count; $i++) {
+            $stockOptions[$options[$i]['value']] = $options[$i]['label'];
+        }
+
+        return $stockOptions;
     }
 
     protected function _price_format($iso_code, $curr_format, $price, $convert_to, $force = false, $format = true)
