@@ -19,7 +19,7 @@
 class Emagicone_Mobassistantconnector_Helper_Access extends Mage_Core_Helper_Abstract
 {
     const HASH_ALGORITHM = 'sha256';
-    const MAX_LIFETIME = 86400; /* 24 hours */
+    const MAX_LIFETIME = 43200; /* 12 hours */
 //    const TABLE_SESSION_KEYS = 'emagicone_mobassistantconnector_sessions';
 //    const TABLE_FAILED_ATTEMPTS = 'emagicone_mobassistantconnector_failed_login';
 
@@ -44,6 +44,23 @@ class Emagicone_Mobassistantconnector_Helper_Access extends Mage_Core_Helper_Abs
 
             Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/cl_date', $timestamp );
         }
+    }
+
+    public static function clearAllData()
+    {
+        $timestamp = time();
+
+        $sessions = Mage::getModel("emagicone_mobassistantconnector/sessions")->getCollection();
+        foreach ($sessions as $session) {
+            $session->delete();
+        }
+
+        $attempts = Mage::getModel("emagicone_mobassistantconnector/failed")->getCollection();
+        foreach ($attempts as $attempt) {
+            $attempt->delete();
+        }
+
+        Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/cl_date', $timestamp );
     }
 
     public static function getSessionKey($hash)

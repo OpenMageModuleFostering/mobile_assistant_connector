@@ -24,10 +24,11 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     public $hash = false;
     public $def_currency;
     public $currency_code;
+    public $store_group_id = -1;
     private $hash_only;
     private $session_key;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '85';
+    const MB_VERSION = '86';
 
     public function indexAction()
     {
@@ -41,47 +42,47 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
         Mage::helper('mobassistantconnector/access')->clearOldData();
 
-        foreach ($this->getRequest()->getParams() as $key => $value) {
-            if (isset($key) && $key == 'callback' && isset($value) && strlen($value) > 0)
-                $this->callback = $value;
-            if (isset($key) && $key == 'call_function' && isset($value) && strlen($value) > 0)
-                $this->call_function = $value;
-            if (isset($key) && $key == 'hash' && isset($value) && strlen($value) > 0)
-                $this->hash = $value;
-            if (isset($key) && $key == 'key')
-                $this->session_key = $value;
-            if (isset($key) && $key == 'hash_only')
-                $this->hash_only = true;
+        if ($this->getRequest()->has('callback') && (strlen($this->getRequest()->get('callback')) > 0))
+            $this->callback = $this->getRequest()->get('callback');
+        if ($this->getRequest()->has('call_function') && (strlen($this->getRequest()->get('call_function')) > 0)) {
+            $this->call_function = $this->getRequest()->get('call_function');
+        } else {
+            $this->run_self_test();
         }
+        if ($this->getRequest()->has('hash') && (strlen($this->getRequest()->get('hash')) > 0))
+            $this->hash = $this->getRequest()->get('hash');
+        if ($this->getRequest()->has('key') && (strlen($this->getRequest()->get('key')) > 0))
+            $this->session_key = $this->getRequest()->get('key');
+        if ($this->getRequest()->has('hash_only') && (strlen($this->getRequest()->get('hash_only')) > 0))
+            $this->hash_only = $this->getRequest()->get('hash_only');
 
+
+        if ($this->hash_only) {
+            $this->generate_output('You should update Magento Mobile Assistant application.');
+        }
 //        if(!$this->check_auth()) {
 //            $this->generate_output('auth_error');
 //        }
 
-        if ($this->call_function == 'get_version')
-            $this->generate_output(array('module_version' => self::MB_VERSION));
+/******************************************/
+        if ($this->getRequest()->has('call_function') && ($this->getRequest()->get('call_function') == 'get_version')) {
+            $this->get_version();
+        }
 
         if ($this->hash) {
-            if ($this->hash_only && in_array($this->call_function, array('get_stores','get_orders_statuses','test_config','get_store_title','get_currencies'))) {
-                // If its real token
-                if (!$this->check_auth())
-                    $this->generate_output('auth_error');
+            if (!$this->check_auth()) {
+                Mage::helper('mobassistantconnector/access')->addFailedAttempt();
+                Mage::log(
+                    "Hash accepted ({$this->hash}) is incorrect",
+                    null,
+                    'emagicone_mobassistantconnector.log'
+                );
+                $this->generate_output('auth_error');
             } else {
-                // Make token based on key
-                $key = Mage::helper('mobassistantconnector/access')->getSessionKey($this->hash);
-
-                if (!$key) {
-                    Mage::log(
-                        "Hash accepted ({$this->hash}) is incorrect",
-                        null,
-                        'emagicone_mobassistantconnector.log'
-                    );
-                    $this->generate_output('auth_error');
-                }
-
-                $this->generate_output(array('session_key' => $key, 'module_version' => self::MB_VERSION));
+                $this->session_key = Mage::helper('mobassistantconnector/access')->getSessionKey($this->hash);
+                $this->generate_output(array('session_key' => $this->session_key));
             }
-        } elseif ($this->session_key || $this->session_key == '') {
+        } elseif ($this->session_key) {
             if (!Mage::helper('mobassistantconnector/access')->checkSessionKey($this->session_key)) {
                 Mage::log(
                     "Key accepted ({$this->session_key}) is incorrect",
@@ -90,69 +91,77 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                 );
                 $this->generate_output(array('bad_session_key' => true));
             }
+        } else {
+            Mage::helper('mobassistantconnector/access')->addFailedAttempt();
+            $this->generate_output('auth_error');
         }
+
 
         $request_params = Mage::app()->getRequest()->getParams();
 
         $params = $this->validate_types($request_params, array(
-            'show' => 'INT',
-            'page' => 'INT',
-            'search_order_id' => 'STR',
-            'orders_from' => 'STR',
-            'orders_to' => 'STR',
-            'order_number' => 'STR',
-            'customers_from' => 'STR',
-            'customers_to' => 'STR',
-            'date_from' => 'STR',
-            'date_to' => 'STR',
-            'graph_from' => 'STR',
-            'graph_to' => 'STR',
-            'stats_from' => 'STR',
-            'stats_to' => 'STR',
-            'products_to' => 'STR',
-            'products_from' => 'STR',
-            'order_id' => 'INT',
-            'user_id' => 'INT',
-            'params' => 'STR',
-            'val' => 'STR',
-            'search_val' => 'STR',
-            'statuses' => 'STR',
-            'sort_by' => 'STR',
-            'last_order_id' => 'STR',
-            'product_id' => 'INT',
-            'get_statuses' => 'INT',
-            'cust_with_orders' => 'INT',
-            'data_for_widget' => 'INT',
-            'registration_id' => 'STR',
-            'registration_id_old' => 'STR',
-            'registration_id_new' => 'STR',
-            'api_key' => 'STR',
-            'tracking_number' => 'STR',
-            'tracking_title' => 'STR',
-            'action' => 'STR',
-            'carrier_code' => 'STR',
-            'custom_period' => 'INT',
-            'group_id' => 'INT',
-            'push_new_customer' => 'INT',
-            'push_new_order' => 'INT',
-            'push_currency_code' => 'STR',
-            'app_connection_id' => 'STR',
-            'push_store_group_id' => 'STR',
-            'push_order_statuses' => 'STR',
-            'currency_code' => 'STR',
-            'is_mail' => 'INT',
-            'store_group_id' => 'INT',
-            'carts_from' => 'STR',
-            'carts_to' => 'STR',
-            'cart_id' => 'STR',
-            'search_carts' => 'STR',
-            'param' => 'STR',
-            'new_value' => 'STR',
+            'show'                  => 'INT',
+            'page'                  => 'INT',
+            'search_order_id'       => 'STR',
+            'orders_from'           => 'STR',
+            'orders_to'             => 'STR',
+            'order_number'          => 'STR',
+            'customers_from'        => 'STR',
+            'customers_to'          => 'STR',
+            'date_from'             => 'STR',
+            'date_to'               => 'STR',
+            'graph_from'            => 'STR',
+            'graph_to'              => 'STR',
+            'stats_from'            => 'STR',
+            'stats_to'              => 'STR',
+            'products_to'           => 'STR',
+            'products_from'         => 'STR',
+            'order_id'              => 'INT',
+            'user_id'               => 'INT',
+            'params'                => 'STR',
+            'val'                   => 'STR',
+            'search_val'            => 'STR',
+            'statuses'              => 'STR',
+            'sort_by'               => 'STR',
+            'last_order_id'         => 'STR',
+            'product_id'            => 'INT',
+            'get_statuses'          => 'INT',
+            'cust_with_orders'      => 'INT',
+            'data_for_widget'       => 'INT',
+            'registration_id'       => 'STR',
+            'registration_id_old'   => 'STR',
+            'registration_id_new'   => 'STR',
+            'api_key'               => 'STR',
+            'tracking_number'       => 'STR',
+            'tracking_title'        => 'STR',
+            'action'                => 'STR',
+            'carrier_code'          => 'STR',
+            'custom_period'         => 'INT',
+            'group_id'              => 'INT',
+            'push_new_customer'     => 'INT',
+            'push_new_order'        => 'INT',
+            'push_currency_code'    => 'STR',
+            'app_connection_id'     => 'STR',
+            'push_store_group_id'   => 'STR',
+            'push_order_statuses'   => 'STR',
+            'currency_code'         => 'STR',
+            'is_mail'               => 'INT',
+            'store_group_id'        => 'INT',
+            'carts_from'            => 'STR',
+            'carts_to'              => 'STR',
+            'cart_id'               => 'STR',
+            'search_carts'          => 'STR',
+            'param'                 => 'STR',
+            'new_value'             => 'STR',
             'show_unregistered_customers' => 'INT',
         ));
 
         foreach ($params as $k => $value) {
             $this->{$k} = $value;
+        }
+
+        if (!empty($this->group_id)) {
+            $this->store_group_id = $this->group_id;
         }
 
         if (empty($this->currency_code) || strval($this->currency_code) == 'base_currency' || strval($this->currency_code) == 'not_set') {
@@ -228,7 +237,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     {
         if (!in_array($this->call_function, array("get_order_pdf"))) {
             $add_bridge_version = false;
-            if (in_array($this->call_function, array("test_config", "get_store_title", "get_store_stats", "get_data_graphs"))) {
+            if (in_array($this->call_function, array('test_config', 'get_store_title', 'get_store_stats', 'get_data_graphs', 'get_version'))) {
                 if (is_array($data) && $data != 'auth_error' && $data != 'connection_error' && $data != 'old_bridge') {
                     $add_bridge_version = true;
                 }
@@ -278,6 +287,80 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         }
     }
 
+    protected function get_version()
+    {
+        if ($this->hash ) {
+            if ($this->check_auth()) {
+                if (!Mage::helper('mobassistantconnector/access')->checkSessionKey($this->session_key)) {
+                    $this->session_key = Mage::helper('mobassistantconnector/access')->getSessionKey($this->hash);
+                } else {
+                    $this->generate_output(array('session_key' => $this->session_key));
+                }
+            } else {
+                Mage::helper('mobassistantconnector/access')->addFailedAttempt();
+                $this->generate_output('auth_error');
+            }
+        } elseif ($this->session_key) {
+            if (!Mage::helper('mobassistantconnector/access')->checkSessionKey($this->session_key)) {
+                Mage::helper('mobassistantconnector/access')->addFailedAttempt();
+                $this->generate_output('auth_error');
+            } else {
+                $this->generate_output(array('session_key' => $this->session_key));
+            }
+        }
+
+        if (!empty($this->session_key)) {
+            $this->generate_output(array('session_key' => $this->session_key));
+        }
+        $this->generate_output(array());
+
+    }
+
+    protected function run_self_test()
+    {
+        $html = '<h2>Mobile Assistant Connector v.' . Mage::getConfig()->getModuleConfig("Emagicone_Mobassistantconnector")->version->__toString() . ' </h2>';
+
+        $html = $html.'</table><br/><br/>
+            <div style="margin-top: 15px; font-size: 13px;">Mobile Assistant Connector by <a href="http://emagicone.com" target="_blank"
+            style="color: #15428B">eMagicOne</a></div>';
+
+        die($html);
+    }
+
+    /**
+     * Delete push config by registration_id and app_connection_id
+     */
+    protected function delete_push_config() {
+        if (isset($this->app_connection_id)
+            && isset($this->registration_id)
+            && strlen($this->registration_id) > 0
+            && strlen($this->app_connection_id) > 0
+        ) {
+            $data_changed = false;
+            $deviceIds = Mage::getStoreConfig('mobassistantconnectorinfosec/access/google_ids');
+            if (strlen($deviceIds) > 0) {
+                $deviceIds = unserialize($deviceIds);
+            } else $deviceIds = array();
+
+            foreach ($deviceIds as $id => $deviceId) {
+                if ($deviceId['push_device_id'] == $this->registration_id && $deviceId['app_connection_id'] == $this->app_connection_id) {
+                    unset($deviceIds[$id]);
+                    $data_changed = true;
+                }
+            }
+
+            if ($data_changed) {
+                Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/google_ids', serialize($deviceIds));
+            }
+
+            $result = array('success' => 'true');
+        } else {
+            $result = array('error' => $this->__('Missing parameters'));
+        }
+
+        return $result;
+    }
+    
     protected function push_notification_settings()
     {
         $result = array();
@@ -354,19 +437,31 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             // Delete empty record
             if ((intval($this->push_new_order) == 0) && (strlen($this->push_order_statuses) == 0) && (intval($this->push_new_customer) == 0)) {
                 foreach ($deviceIds as $settingNum => $deviceId) {
-                    if ($deviceId['push_device_id'] == $this->registration_id && (isset($deviceId['app_connection_id']) && $deviceId['app_connection_id'] == $deviceActions['app_connection_id'])) {
+                    if ($deviceId['push_device_id'] == $this->registration_id
+                        && (isset($deviceId['app_connection_id'])
+                        && $deviceId['app_connection_id'] == $deviceActions['app_connection_id'])
+                    ) {
                         unset($deviceIds[$settingNum]);
-                    } else if ($deviceId['push_device_id'] == $this->registration_id && $deviceId['push_store_group_id'] == $this->store_group_id && !isset($deviceId['app_connection_id'])) {
+                    } else if ($deviceId['push_device_id'] == $this->registration_id
+                        && $deviceId['push_store_group_id'] == $this->store_group_id
+                        && (!isset($deviceId['app_connection_id']) || $deviceId['app_connection_id'] == -1)
+                    ) {
                         unset($deviceIds[$settingNum]);
                     }
                 }
             } else {
                 // renew old record
                 foreach ($deviceIds as $settingNum => $deviceId) {
-                    if ($deviceId['push_device_id'] == $this->registration_id && (isset($deviceId['app_connection_id']) && $deviceId['app_connection_id'] == $deviceActions['app_connection_id'])) {
+                    if ($deviceId['push_device_id'] == $this->registration_id
+                        && (isset($deviceId['app_connection_id'])
+                        && $deviceId['app_connection_id'] == $deviceActions['app_connection_id'])
+                    ) {
                         $deviceIds[$settingNum] = $deviceActions;
                         $matched = true;
-                    } else if ($deviceId['push_device_id'] == $this->registration_id && $deviceId['push_store_group_id'] == $deviceActions['push_store_group_id'] && !isset($deviceId['app_connection_id'])) {
+                    } else if ($deviceId['push_device_id'] == $this->registration_id
+                                && $deviceId['push_store_group_id'] == $deviceActions['push_store_group_id']
+                                && !isset($deviceId['app_connection_id'])
+                    ) {
                         $deviceIds[$settingNum] = $deviceActions;
                         $matched = true;
                     }
@@ -562,7 +657,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $first = $ordersCollection->getFirstItem();
 
         /*
-		if(!empty($date_from) && !empty($date_to)) {
+        if(!empty($date_from) && !empty($date_to)) {
             $ordersCollection->addFieldToFilter('main_table.created_at',
                 array('from' => $date_from,
                     'to' => $date_to,
