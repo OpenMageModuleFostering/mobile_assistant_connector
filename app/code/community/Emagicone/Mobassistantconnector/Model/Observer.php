@@ -18,6 +18,8 @@
 
 class Emagicone_Mobassistantconnector_Model_Observer
 {
+    private static $isNewOrderAlreadyInvoked = false;
+
     private static function getActiveDevices()
     {
         $pushesCollection = Mage::getModel('emagicone_mobassistantconnector/push')->getCollection();
@@ -212,8 +214,9 @@ class Emagicone_Mobassistantconnector_Model_Observer
 
         if ($oldStatus && $oldStatus != $newStatus) {
             $type = 'order_changed';
-        } elseif (!$oldStatus) {
+        } elseif (!self::$isNewOrderAlreadyInvoked && !$oldStatus) {
             $type = 'new_order';
+            self::$isNewOrderAlreadyInvoked = true;
         } else {
             return;
         }

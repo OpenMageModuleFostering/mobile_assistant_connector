@@ -43,7 +43,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $group_id;
 
 //    const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '104';
+    const MB_VERSION = '105';
 
     public function indexAction()
     {
@@ -3411,7 +3411,14 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         if ($iso_code != $convert_to && strlen($convert_to) == 3) {
             try {
 //                $price = Mage::helper('directory')->currencyConvert($price, $baseCurrencyCode, $convert_to);
-                $price = Mage::helper('directory')->currencyConvert($price, $iso_code, $convert_to);
+                if (!Mage::getModel('directory/currency')->load($iso_code)->getRate($convert_to)) {
+                    if ($rate = Mage::getModel('directory/currency')->load($convert_to)->getRate($iso_code)) {
+                        $price = $price / $rate;
+                    }
+                } else {
+                    $price = Mage::helper('directory')->currencyConvert($price, $iso_code, $convert_to);
+                }
+
                 $iso_code = $convert_to;
             } catch (Exception $e) {
                 Mage::log(
