@@ -28,7 +28,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $hash_only;
     private $session_key;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '96';
+    const MB_VERSION = '97';
 
     public function indexAction()
     {
@@ -2142,19 +2142,19 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 //        $collection->addAttributeToSelect('qty', 'left');
 
         $collection->getSelect()->joinLeft(
-            ['et_product' => Mage::getConfig()->getTablePrefix() . 'eav_entity_type'],
+            array('et_product' => Mage::getConfig()->getTablePrefix() . 'eav_entity_type'),
                 "et_product.entity_type_code = 'catalog_product'",
-                []
+                array()
              )
             ->joinLeft(
-                ['a_price' => Mage::getConfig()->getTablePrefix() . 'eav_attribute'],
-                    "a_price.entity_type_id = et_product.entity_type_id AND a_price.attribute_code = 'price'",
-                []
+                array('a_price' => Mage::getConfig()->getTablePrefix() . 'eav_attribute'),
+                "a_price.entity_type_id = et_product.entity_type_id AND a_price.attribute_code = 'price'",
+                array()
             )
             ->joinLeft(
-                ['p_price' => Mage::getConfig()->getTablePrefix() . 'catalog_product_entity_decimal'],
-                    "p_price.entity_id = e.entity_id AND p_price.attribute_id = a_price.attribute_id AND p_price.store_id = 0",
-                ['p_price.value AS price']
+                array('p_price' => Mage::getConfig()->getTablePrefix() . 'catalog_product_entity_decimal'),
+                "p_price.entity_id = e.entity_id AND p_price.attribute_id = a_price.attribute_id AND p_price.store_id = 0",
+                array('p_price.value AS price')
             );
 
 
