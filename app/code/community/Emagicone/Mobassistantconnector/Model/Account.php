@@ -16,28 +16,30 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
+class Emagicone_Mobassistantconnector_Model_Account extends Mage_Core_Model_Abstract
 {
 
     public function _construct()
     {
-        $this->_init('emagicone_mobassistantconnector/sessions');
+        $this->_init('emagicone_mobassistantconnector/account');
     }
 
     /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
+     * Saves account if it is missing and return account object
+     *
+     * @param $accountEmail
      * @return $this
      */
-    public function loadByUserId($userId)
+    public function saveAndGetAccountByEmail($accountEmail)
     {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
+        $matches = $this->getResourceCollection()
+            ->addFieldToFilter('account_email', $accountEmail);
 
         foreach ($matches as $match) {
             return $this->load($match->getId());
         }
 
-        return $this;
+        return $this->setData(array('account_email' => $accountEmail, 'status' => 1))->save();
     }
 
 }

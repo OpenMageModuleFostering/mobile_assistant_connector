@@ -27,86 +27,84 @@ class Emagicone_Mobassistantconnector_Helper_Access extends Mage_Core_Helper_Abs
     {
         $timestamp = time();
         $date = Mage::getStoreConfig('mobassistantconnectorinfosec/access/cl_date');
+        $dateDelete = $timestamp - self::MAX_LIFETIME;
 
-        if ($date === false || ($timestamp - (int)$date) > self::MAX_LIFETIME)
-        {
-            $sessions = Mage::getModel("emagicone_mobassistantconnector/sessions")->getCollection();
-            $sessions->addFieldToFilter('date_added', array('lt' => ($timestamp - self::MAX_LIFETIME)));
+        if ($date === false || ($timestamp - (int)$date) > self::MAX_LIFETIME) {
+            // Delete old session keys
+            $sessions = Mage::getModel('emagicone_mobassistantconnector/sessions')->getCollection()
+                ->addFieldToFilter('date_added', array('lt' => $dateDelete));
             foreach ($sessions as $session) {
                 $session->delete();
             }
 
-            $attempts = Mage::getModel("emagicone_mobassistantconnector/failed")->getCollection();
-            $attempts->addFieldToFilter('date_added', array('lt' => ($timestamp - self::MAX_LIFETIME)));
+            // Delete old failed logins
+            $attempts = Mage::getModel('emagicone_mobassistantconnector/failed')->getCollection()
+                ->addFieldToFilter('date_added', array('lt' => $dateDelete));
             foreach ($attempts as $attempt) {
                 $attempt->delete();
             }
 
-            Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/cl_date', $timestamp );
+            // Update clearing date in core_config_data table
+            Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/cl_date', $timestamp);
         }
     }
 
-    public static function clearAllData()
+    public static function getSessionKey($hash, $user_id = false)
     {
-        $timestamp = time();
+        if (!$user_id) {
+            $login_data = self::checkAuth($hash);
 
-        $sessions = Mage::getModel("emagicone_mobassistantconnector/sessions")->getCollection();
-        foreach ($sessions as $session) {
-            $session->delete();
-        }
-
-        $attempts = Mage::getModel("emagicone_mobassistantconnector/failed")->getCollection();
-        foreach ($attempts as $attempt) {
-            $attempt->delete();
-        }
-
-        Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/cl_date', $timestamp );
-    }
-
-    public static function getSessionKey($hash)
-    {
-        $login = Mage::getStoreConfig('mobassistantconnectorinfosec/emoaccess/login');
-        $password = Mage::getStoreConfig('mobassistantconnectorinfosec/emoaccess/password');
-
-        if (hash(self::HASH_ALGORITHM, $login.$password) == $hash)
-            return self::generateSessionKey($login);
-        else
-            self::addFailedAttempt();
-
-        return false;
-    }
-
-    public static function checkSessionKey($key)
-    {
-        if(!empty($key)) {
-
-            $timestamp = time();
-
-            $sessions = Mage::getModel("emagicone_mobassistantconnector/sessions")->getCollection();
-            $sessions->addFieldToFilter('date_added', array('gt' => ($timestamp - self::MAX_LIFETIME)));
-            $sessions->addFieldToFilter('session_key', array('eq' => $key));
-
-            if($sessions->getSize() > 0) {
-                return true;
-            } else {
-                self::addFailedAttempt();
+            if ($login_data) {
+                $user_id = (int)$login_data['user_id'];
             }
         }
 
+        if ($user_id) {
+            return self::generateSessionKey($user_id);
+        }
+
+        self::addFailedAttempt();
         return false;
     }
 
-    public static function generateSessionKey($username)
+    public static function checkSessionKey($key, $user_id = false)
+    {
+        $sessions = Mage::getModel('emagicone_mobassistantconnector/sessions')
+            ->getCollection()
+            ->addFieldToFilter('date_added', array('gt' => (time() - self::MAX_LIFETIME)))
+            ->addFieldToFilter('session_key', array('eg' => $key));
+
+        if ($user_id) {
+            $sessions->addFieldToFilter('user_id', array('eg' => (int)$user_id));
+        }
+
+        if ($sessions->getSize() > 0) {
+            return true;
+        }
+
+        self::addFailedAttempt();
+        return false;
+    }
+
+    public static function generateSessionKey($user_id)
     {
         $timestamp = time();
+        $sessions = Mage::getModel('emagicone_mobassistantconnector/sessions')
+            ->getCollection()
+            ->addFieldToFilter('date_added', array('gt' => ($timestamp - self::MAX_LIFETIME)))
+            ->addFieldToFilter('user_id', array('eg' => (int)$user_id));
+
+        foreach ($sessions as $session) {
+            return $session->getSessionKey();
+        }
 
         $enc_key = (string)Mage::getConfig()->getNode('global/crypt/key');
+        $key = hash(self::HASH_ALGORITHM, $enc_key . $user_id . $timestamp);
 
-        $key = hash(self::HASH_ALGORITHM, $enc_key.$username.$timestamp);
-
-        $sessions = Mage::getModel("emagicone_mobassistantconnector/sessions");
-        $sessions->setData(array('session_key' => $key, 'date_added' => $timestamp));
-        $sessions->save();
+        Mage::getModel('emagicone_mobassistantconnector/sessions')
+            ->loadByUserId($user_id)
+            ->setData(array('user_id' => $user_id, 'session_key' => $key, 'date_added' => $timestamp))
+            ->save();
 
         return $key;
     }
@@ -115,29 +113,105 @@ class Emagicone_Mobassistantconnector_Helper_Access extends Mage_Core_Helper_Abs
     {
         $timestamp = time();
 
-        $attempts = Mage::getModel("emagicone_mobassistantconnector/failed");
-        $attempts->setData(array('ip' => $_SERVER['REMOTE_ADDR'], 'date_added' => $timestamp));
-        $attempts->save();
+        // Add data to database
+        Mage::getModel('emagicone_mobassistantconnector/failed')
+            ->setData(array('ip' => $_SERVER['REMOTE_ADDR'], 'date_added' => $timestamp))
+            ->save();
 
-
-        $attempts = Mage::getModel("emagicone_mobassistantconnector/failed")->getCollection();
-        $attempts->addFieldToFilter('date_added', array('gt' => ($timestamp - self::MAX_LIFETIME)));
-        $attempts->addFieldToFilter('ip', array('eq' => $_SERVER['REMOTE_ADDR']));
+        // Get count of failed attempts for last time and set delay
+        $attempts = Mage::getModel('emagicone_mobassistantconnector/failed')->getCollection()
+            ->addFieldToFilter('date_added', array('gt' => ($timestamp - self::MAX_LIFETIME)))
+            ->addFieldToFilter('ip', array('eq' => $_SERVER['REMOTE_ADDR']));
         $count_failed_attempts = $attempts->getSize();
 
         self::setDelay((int)$count_failed_attempts);
     }
 
+    public static function checkAuth($hash, $is_log = false)
+    {
+        $users = Mage::getModel('emagicone_mobassistantconnector/user')->getCollection()
+            ->addFieldToFilter('status', array('eq' => 1));
+
+        foreach ($users as $user) {
+            if (hash(self::HASH_ALGORITHM, $user->getUsername() . $user->getPassword()) == $hash) {
+                return $user->toArray();
+            }
+        }
+
+        if ($is_log) {
+            Mage::log('Hash accepted is incorrect', null, 'emagicone_mobassistantconnector.log');
+        }
+
+        return false;
+    }
+
+    public static function getAllowedActionsBySessionKey($key)
+    {
+        $result = array();
+        $sessionKey = Mage::getModel('emagicone_mobassistantconnector/sessions')->load($key, 'session_key');
+
+        if (!$sessionKey->getId()) {
+            return $result;
+        }
+
+        $user = Mage::getModel('emagicone_mobassistantconnector/user')->load($sessionKey->getUserId());
+        $allowedActions = $user->getAllowedActions();
+
+        if (!empty($allowedActions)) {
+            $result = explode(';', $allowedActions);
+        }
+
+        return $result;
+    }
+
+    public static function getAllowedActionsByUserId($user_id)
+    {
+        $result = array();
+        $user = Mage::getModel('emagicone_mobassistantconnector/user')->load($user_id);
+
+        if (!$user->getId()) {
+            return $result;
+        }
+
+        $allowedActions = $user->getAllowedActions();
+
+        if (!empty($allowedActions)) {
+            $result = explode(';', $allowedActions);
+        }
+
+        return $result;
+    }
+
+    public static function getUserIdBySessionKey($key)
+    {
+        $user_id = false;
+        $users = Mage::getModel('emagicone_mobassistantconnector/user')->getCollection();
+        $users->getSelect()
+            ->joinLeft(
+                array('k' => Mage::getSingleton('core/resource')->getTableName('emagicone_mobassistantconnector/sessions')),
+                'k.user_id = main_table.user_id'
+            )
+            ->where("k.session_key = '$key' AND main_table.`status` = 1");
+
+        foreach ($users as $user) {
+            $user_id = $user->getUserId();
+            break;
+        }
+
+        return $user_id;
+    }
+
     private static function setDelay($count_attempts)
     {
-        if ($count_attempts <= 10)
-            sleep(2);
-        elseif ($count_attempts <= 20)
+        if ($count_attempts > 3 && $count_attempts <= 10) {
+            sleep(1);
+        } elseif ($count_attempts <= 20) {
             sleep(5);
-        elseif ($count_attempts <= 50)
+        } elseif ($count_attempts <= 50) {
             sleep(10);
-        else
+        } else {
             sleep(20);
+        }
     }
 
 }

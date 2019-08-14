@@ -18,217 +18,286 @@
 
 class Emagicone_Mobassistantconnector_Model_Observer
 {
-    public function checkOrder($observer) {
 
-        if(intval(Mage::getStoreConfig('mobassistantconnectorinfosec/emogeneral/status')) == 1) {
-            $order = $observer->getEvent()->getOrder();
-            $groupId = $_storeId = Mage::app()->getStore(intval($order->getStoreId()))->getGroupId();
-            $state = $order->getState();
-            // $state = $observer->getEvent()->getState();
-            // $status = $observer->getEvent()->getStatus();
-            $status = $order->getStatus();
-            $comment = $observer->getEvent()->getComment();
-            $statusLabel = $status;
-            $statuses = array();
-            $deviceIds = array();
-            $deviceIdsByCCode = array();
-            $deviceArResult = array();
-            $type = '';
+    private static function getActiveDevices()
+    {
+        $pushesCollection = Mage::getModel('emagicone_mobassistantconnector/push')->getCollection();
+        $pushesCollection->getSelect()
+            ->joinLeft(
+                array('d' => Mage::getSingleton('core/resource')->getTableName('emagicone_mobassistantconnector/device')),
+                'main_table.`device_unique_id` = d.`device_unique_id`',
+                array()
+            )
+            ->joinLeft(
+                array('a' => Mage::getSingleton('core/resource')->getTableName('emagicone_mobassistantconnector/account')),
+                'a.`id` = d.`account_id`',
+                array()
+            )
+            ->joinLeft(
+                array('u' => Mage::getSingleton('core/resource')->getTableName('emagicone_mobassistantconnector/user')),
+                'u.`user_id` = main_table.`user_id`',
+                array()
+            )
+            ->where('a.`status` = 1 AND u.`status` = 1 OR main_table.`user_id` IS NULL');
 
-            $statuses = Mage::getModel('sales/order_status')->getResourceCollection()->getData();
-            foreach($statuses as $st) {
-                if($st['status'] == $status) {
-                    $statusLabel = $st['label'];
-                }
+        return $pushesCollection;
+    }
+
+    private static function sendRequestAboutOrder($device, $type, $order, $statusLabel)
+    {
+        $currencyCode = $order->getGlobalCurrencyCode();
+
+        $deviceCurrencyCode = $device->getCurrencyCode();
+        if (empty($deviceCurrencyCode) || (string)$deviceCurrencyCode == 'base_currency') {
+            $deviceCurrencyCode = $currencyCode;
+        }
+
+        $total = $order->getBaseGrandTotal();
+        $total = number_format((float)$total, 2, '.', ' ');
+        $total = Mage::helper('mobassistantconnector')
+            ->price_format($currencyCode, 1, $total, $deviceCurrencyCode, 0, true);
+
+        $fields = array(
+            'registration_ids' => array($device->getDeviceId()),
+            'data' => array(
+                'message' => array(
+                    'push_notif_type'   => $type,
+                    'email'             => $order->getCustomerEmail(),
+                    'customer_name'     => "{$order->getCustomerFirstname()} {$order->getCustomerLastname()}",
+                    'order_id'          => $order->getId(),
+                    'total'             => $total,
+                    'store_url'         => self::getBaseStoreUrl(),
+                    'group_id'          => $order->getStore()->getGroupId(),
+                    'app_connection_id' => $device->getAppConnectionId()
+                )
+            )
+        );
+
+        if ($type == 'order_changed') {
+            $fields['data']['message']['new_status'] = $statusLabel;
+        }
+
+        self::sendPushMessage(Mage::helper('core')->jsonEncode($fields), $device->getDeviceId());
+    }
+
+    private static function sendPushMessage($data, $deviceRegistrationId)
+    {
+        $apiKey = Mage::getStoreConfig('mobassistantconnectorinfosec/access/api_key');
+
+        if (!$apiKey) {
+            return;
+        }
+
+        $headers = array("Authorization: key=$apiKey", 'Content-Type: application/json');
+        $result = false;
+
+        if (is_callable('curl_init')) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://android.googleapis.com/gcm/send');
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+            $result = curl_exec($ch);
+
+            if (curl_errno($ch)) {
+                Mage::log(
+                    "Push message error while sending CURL request: {$result}",
+                    null,
+                    'emagicone_mobassistantconnector.log'
+                );
             }
 
-            $deviceIdActions = Mage::helper('mobassistantconnector')->pushSettingsUpgrade();
+            curl_close($ch);
+        }
 
-            if(count($deviceIdActions) > 0 && !is_null($state)) {
+        self::proceedGoogleResponse($result, $deviceRegistrationId);
+    }
 
+    private static function proceedGoogleResponse($response, $deviceRegistrationId)
+    {
+        $json = array();
 
-                foreach ($deviceIdActions as $settingNum => $deviceId) {
-
-                    Mage::log(
-                        "push_new_order: ". $deviceId['push_store_group_id'].
-                        "\n groupId: ". $groupId.
-                        "\n state: ". $state.
-                        "\n push_device_id: ". $deviceId['push_device_id']
-                        ,
-                        null,
-                        'emagicone_mobassistantconnector.log'
-                    );
-
-                    // Get devices according to group_id
-                    if($deviceId['push_store_group_id'] == $groupId || $deviceId['push_store_group_id'] == -1) {
-                        // New order notification
-                        if(intval($deviceId['push_new_order']) == 1  /**  && ( ($order->getCreatedAt() == $order->getUpdatedAt())  || $order->getCustomerIsGuest() == true) */ && $state == 'new' && !is_null($deviceId['push_device_id'])){
-                            if (!in_array($deviceId['push_device_id'], $deviceIds)) {
-                                $deviceId['setting_num'] = $settingNum;
-                                $deviceIds[$deviceId['push_device_id']] = $deviceId;
-    //                            $deviceIdsByCCode[$deviceId['push_currency_code']][] = $deviceId['push_device_id'];
-                                $type = 'new_order';
-                            }
-                        }
-                        // New status notification
-                        if(strlen($deviceId['push_order_statuses']) > 0 && (!in_array($deviceId['push_device_id'], $deviceIds)) && !($order->getCreatedAt() == $order->getUpdatedAt()) ) {
-                            $statuses =  explode('|', $deviceId['push_order_statuses']);
-                            if(in_array($status, $statuses) || intval($deviceId['push_order_statuses']) == -1) {
-                                if (!in_array($deviceId['push_device_id'], $deviceIds)) {
-                                    $deviceId['setting_num'] = $settingNum;
-                                    $deviceIds[$deviceId['push_device_id']] = $deviceId;
-//                                    $deviceIdsByCCode[$deviceId['push_currency_code']][] = $deviceId['push_device_id'];
-//                                    $deviceIdsByCCode[$deviceId['push_currency_code']]['push_device_id'][] = $deviceId['push_device_id'];
-//                                    $deviceIdsByCCode[$deviceId['push_currency_code']]['app_connection_id'][] = $deviceId['app_connection_id'];
-                                    $type = 'order_changed';
-                                }
-                            }
-                        }
-                    }
-                }
-
+        if ($response && strpos($response, '{') === 0) {
+            try {
+                $json = Mage::helper('core')->jsonDecode($response);
+            } catch (Exception $e) {
+                Mage::log('Error on json decoding', null, 'emagicone_mobassistantconnector.log');
+                return;
             }
+        }
 
-            Mage::log(
-                "******* \n Push message: Type: {$type}; All ids: ". count($deviceIdActions). "; Accepted to current event: {". count($deviceIds). "};  ",
-                null,
-                'emagicone_mobassistantconnector.log'
-            );
+        if (!$json || !is_array($json) || !isset($json['results'])) {
+            return;
+        }
 
-//            foreach($deviceIdsByCCode as $deviceCurrencyCode => $deviceIds) {
-                if(count($deviceIds) > 0) {
-                    foreach ($deviceIds as $key => $value) {
-                        $currency_code = $order->getGlobalCurrencyCode();
-                        $currency_symbol = Mage::app()->getLocale()->currency($currency_code)->getSymbol();
+        foreach ($json['results'] as $result) {
+            if (
+                isset($result['registration_id']) && isset($json['canonical_ids']) && (int)$json['canonical_ids'] > 0 ||
+                isset($result['error']) &&
+                ($result['error'] == 'NotRegistered' || $result['error'] == 'InvalidRegistration')
+            ) {
+                $deviceCollection = Mage::getModel('emagicone_mobassistantconnector/push')
+                    ->getCollection()
+                    ->addFieldToFilter('device_id', $deviceRegistrationId);
 
-                        $deviceCurrencyCode = $value['push_currency_code'];
-                        $app_connection_id = $value['app_connection_id'];
+                if (
+                    isset($result['registration_id']) && isset($json['canonical_ids']) && (int)$json['canonical_ids'] > 0
+                ) {
+                    foreach ($deviceCollection as $device) {
+                        $collection = Mage::getModel('emagicone_mobassistantconnector/push')
+                            ->getCollection()
+                            ->addFieldToFilter('device_id', $result['registration_id'])
+                            ->addFieldToFilter('user_id', $device->getUserId())
+                            ->addFieldToFilter('app_connection_id', $device->getAppConnectionId());
 
-                        // $total = $order->getSubtotalInclTax();
-                        $total = $order->getBaseGrandTotal();
-                        $total = number_format(floatval($total), 2, '.', ' ');
-
-                        if(empty($deviceCurrencyCode) || strval($deviceCurrencyCode) == 'base_currency') {
-                            $deviceCurrencyCode = $currency_code;
+                        if ($collection->getSize() > 0) {
+                            $device->delete();
+                        } else {
+                            $device->setDeviceId($result['registration_id']);
+                            $device->save();
                         }
-
-                        $total = Mage::helper('mobassistantconnector')->price_format($currency_code, 1, $total, $deviceCurrencyCode, 0, true);
-
-                        $storeUrl = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
-                        $storeUrl = str_replace('http://', '',  $storeUrl);
-                        $storeUrl = str_replace('https://', '',  $storeUrl);
-                        $storeUrl = rtrim($storeUrl, '/'  );
-
-                        preg_replace('/\/*$/i', '', $storeUrl);
-
-                        $fields = array(
-                            'registration_ids' => array(0 => $value['push_device_id']),
-                            'data' => array( "message" => array("push_notif_type" => $type, "email" => $order->getCustomerEmail(), 'customer_name' => $order->getCustomerFirstname().'  '.$order->getCustomerLastname(),
-                                "order_id" => $order->getId(), "total" => $total, "store_url" => $storeUrl, "new_status" => $statusLabel, "new_status_code" => $status, "group_id" => $groupId, 'app_connection_id' => $app_connection_id) ),
-                        );
-
-                        if($type === 'new_order') {
-                            unset($fields['data']['new_status']);
-                            unset($fields['data']['new_status_code']);
-                        }
-
-                        $fields_log = var_export($fields, true);
-
-                        $send_data = Mage::helper('core')->jsonEncode($fields['data']);
-
-                        Mage::log(
-                            "Push message: Type: {$type}; data: " . var_export(json_encode($fields), true) ,
-                            null,
-                            'emagicone_mobassistantconnector.log'
-                        );
-
-                        $fields = Mage::helper('core')->jsonEncode($fields);
-
-                        $response = Mage::helper('mobassistantconnector')->sendPushMessage($fields);
-
-                        Mage::helper('mobassistantconnector')->proceedGoogleResponse($response, array('device_id' => $value['push_device_id'],
-                                                                                                                        'app_connection_id' => $value['app_connection_id']));
-
-/*                        $d_r = Mage::helper('core')->jsonDecode($response, Zend_Json::TYPE_OBJECT);
-
-                        Mage::log(
-                            "Google response: (multicast_id = {$d_r->multicast_id}, success = {$d_r->success}, failure = {$d_r->failure}, canonical_ids = {$d_r->canonical_ids})",
-                            null,
-                            'emagicone_mobassistantconnector.log'
-                        );*/
                     }
-//                }
+                } else {
+                    foreach ($deviceCollection as $device) {
+                        $device->delete();
+                    }
+
+                    Mage::helper('mobassistantconnector/deviceAndPushNotification')->deleteEmptyDevices();
+                    Mage::helper('mobassistantconnector/deviceAndPushNotification')->deleteEmptyAccounts();
+                    Mage::log("Google error response: {$response}", null, 'emagicone_mobassistantconnector.log');
+                }
             }
         }
     }
 
-    public function customerRegisterSuccess($observer) {
-        $statuses = array();
-        $deviceIds = array();
-        $deviceArResult = array();
-        $type = 'new_customer';
+    private static function getBaseStoreUrl()
+    {
+        $storeUrl = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
+        $storeUrl = str_replace('http://', '', $storeUrl);
+        $storeUrl = str_replace('https://', '', $storeUrl);
+        $storeUrl = rtrim($storeUrl, '/');
 
+        return $storeUrl;
+    }
 
+    private static function isPushNotificationAllowed($userId, $code)
+    {
+        $userId = (int)$userId;
+
+        if ($userId < 1) {
+            return true;
+        }
+
+        $result         = false;
+        $userModel      = Mage::getModel('emagicone_mobassistantconnector/user')->load($userId);
+        $allowedActions = $userModel->getData('allowed_actions');
+
+        if ($allowedActions) {
+            $allowedActions = explode(';', $allowedActions);
+
+            if (!empty($allowedActions) && in_array($code, $allowedActions)) {
+                $result = true;
+            }
+        }
+
+        return $result;
+    }
+
+    public function checkOrder($observer)
+    {
+        $order     = $observer->getEvent()->getOrder();
+        $oldStatus = $order->getOrigData('status');
+        $newStatus = $order->getStatus();
+
+        if ($oldStatus && $oldStatus != $newStatus) {
+            $type = 'order_changed';
+        } elseif (!$oldStatus) {
+            $type = 'new_order';
+        } else {
+            return;
+        }
+
+        $orderGroupId = $order->getStore()->getGroupId();
+        $statusLabel  = $newStatus;
+        $devices      = self::getActiveDevices();
+
+        $statuses = Mage::getModel('sales/order_status')->getResourceCollection()->getData();
+        foreach ($statuses as $st) {
+            if ($st['status'] == $newStatus) {
+                $statusLabel = $st['label'];
+                break;
+            }
+        }
+
+        foreach ($devices as $device) {
+            $deviceId        = $device->getDeviceId();
+            $appConnectionId = (int)$device->getAppConnectionId();
+            $storeGroupId    = (int)$device->getStoreGroupId();
+
+            $deviceOrderStatuses = $device->getOrderStatuses();
+            if (!empty($deviceOrderStatuses)) {
+                $deviceOrderStatuses = explode('|', $deviceOrderStatuses);
+            }
+            if (!is_array($deviceOrderStatuses)) {
+                $deviceOrderStatuses = array();
+            }
+
+            if (
+                $type == 'new_order' &&
+                !empty($deviceId) &&
+                (int)$device->getNewOrder() == 1 &&
+                $appConnectionId > 0 &&
+                ($storeGroupId == -1 || $storeGroupId == $orderGroupId) &&
+                self::isPushNotificationAllowed($device->getData('user_id'), 'push_notification_settings_new_order') ||
+                $type == 'order_changed' &&
+                !empty($deviceId) &&
+                (in_array('-1', $deviceOrderStatuses) || in_array($newStatus, $deviceOrderStatuses)) &&
+                $appConnectionId > 0 &&
+                ($storeGroupId == -1 || $storeGroupId == $orderGroupId) &&
+                self::isPushNotificationAllowed($device->getData('user_id'), 'push_notification_settings_order_statuses')
+            ) {
+                self::sendRequestAboutOrder($device, $type, $order, $statusLabel);
+            }
+        }
+    }
+
+    public function customerRegisterSuccess($observer)
+    {
         $customer = $observer->getEvent()->getCustomer();
-        $groupId = $_storeId = Mage::app()->getStore(intval($customer->getStoreId()))->getGroupId();
+        $devices  = self::getActiveDevices();
 
-        Mage::app()->cleanCache();
-        if(intval(Mage::getStoreConfig('mobassistantconnectorinfosec/emogeneral/status')) == 1) {
+        foreach ($devices as $device) {
+            $deviceId        = $device->getDeviceId();
+            $appConnectionId = (int)$device->getAppConnectionId();
+            $storeGroupId    = (int)$device->getStoreGroupId();
 
-            $deviceIdActions = Mage::helper('mobassistantconnector')->pushSettingsUpgrade();
+            if (
+                !empty($deviceId) &&
+                (int)$device->getNewCustomer() == 1 &&
+                $appConnectionId > 0 &&
+                ($storeGroupId == -1 || $storeGroupId == $customer->getGroupId()) &&
+                self::isPushNotificationAllowed($device->getData('user_id'), 'push_notification_settings_new_customer')
+            ) {
+                $fields = array(
+                    'registration_ids' => array($deviceId),
+                    'data' => array(
+                        'message' => array(
+                            'push_notif_type'   => 'new_customer',
+                            'email'             => $customer->getEmail(),
+                            'customer_name'     => "{$customer->getFirstname()} {$customer->getLastname()}",
+                            'customer_id'       => $customer->getId(),
+                            'store_url'         => self::getBaseStoreUrl(),
+                            'group_id'          => $storeGroupId,
+                            'app_connection_id' => $appConnectionId
+                        )
+                    )
+                );
 
-            if(count($deviceIdActions) > 0) {
-                foreach ($deviceIdActions as $settingNum => $deviceId) {
-                    if(($groupId == $deviceId['push_store_group_id']) || $deviceId['push_store_group_id'] == -1) {
-                        if(intval($deviceId['push_new_customer'] == 1)) {
-                            $deviceId['setting_num'] = $settingNum;
-                            array_push($deviceIds, $deviceId);
-                        }
-                    }
-                }
-            }
-
-            Mage::log(
-                "******* \n Push message: Type: {$type}; All ids: ". count($deviceIdActions). "; Accepted to current event: {". count($deviceIds). "};  ",
-                null,
-                'emagicone_mobassistantconnector.log'
-            );
-
-            if(count($deviceIds) > 0) {
-                foreach ($deviceIds as $key => $value) {
-                    $fields = array(
-                        'registration_ids' => array(0 => $value['push_device_id']),
-                        'data' => array( "message" => array("push_notif_type" => $type, "email" => $customer->getEmail(), 'customer_name' => $customer->getFirstname().'  '.$customer->getLastname(),
-                            "customer_id" => $customer->getId(), "store_url" => Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB), "group_id" => $groupId, 'app_connection_id' => $value['app_connection_id']))
-                    );
-
-                    $send_data = Mage::helper('core')->jsonEncode($fields['data']);
-                    $fields = Mage::helper('core')->jsonEncode($fields);
-
-
-                    Mage::log(
-                        "Data: {$fields} ",
-                        null,
-                        'emagicone_mobassistantconnector.log'
-                    );
-
-                    $response = Mage::helper('mobassistantconnector')->sendPushMessage($fields);
-
-    //                $success = true;
-                    Mage::helper('mobassistantconnector')->proceedGoogleResponse($response, array('device_id' => $value['push_device_id'],
-                                                                                                                        'app_connection_id' => $value['app_connection_id']));
-
-//                    Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/google_ids', serialize($deviceArResult) );
-
-                    $d_r = Mage::helper('core')->jsonDecode($response, Zend_Json::TYPE_OBJECT);
-
-                    Mage::log(
-                        "Google response: (multicast_id = {$d_r->multicast_id}, success = {$d_r->success}, failure = {$d_r->failure}, canonical_ids = {$d_r->canonical_ids}, results = {$d_r->results})",
-                        null,
-                        'emagicone_mobassistantconnector.log'
-                    );
-                }
+                self::sendPushMessage(Mage::helper('core')->jsonEncode($fields), $deviceId);
             }
         }
     }
+
 }

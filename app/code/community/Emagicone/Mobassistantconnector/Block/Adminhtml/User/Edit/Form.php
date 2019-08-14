@@ -16,28 +16,26 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
+class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit_Form extends Mage_Adminhtml_Block_Widget_Form
 {
 
-    public function _construct()
+    protected function _prepareForm()
     {
-        $this->_init('emagicone_mobassistantconnector/sessions');
-    }
+        $model = Mage::registry('mobassistantconnector_user');
 
-    /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
-     * @return $this
-     */
-    public function loadByUserId($userId)
-    {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
+        $form = new Varien_Data_Form(
+            array(
+                'id'        => 'edit_form',
+                'action'    => $this->getUrl('*/*/save', array('user_id' => $this->getRequest()->getParam('user_id'))),
+                'method'    => 'post'
+            )
+        );
 
-        foreach ($matches as $match) {
-            return $this->load($match->getId());
-        }
+        $form->setValues($model->getData());
+        $form->setUseContainer(true);
+        $this->setForm($form);
 
-        return $this;
+        return parent::_prepareForm();
     }
 
 }

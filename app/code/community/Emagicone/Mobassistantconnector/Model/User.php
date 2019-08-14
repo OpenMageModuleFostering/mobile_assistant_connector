@@ -16,28 +16,28 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
+class Emagicone_Mobassistantconnector_Model_User extends Mage_Core_Model_Abstract
 {
 
-    public function _construct()
+    const STATUS_ENABLED  = 1;
+    const STATUS_DISABLED = 0;
+
+    protected function _construct()
     {
-        $this->_init('emagicone_mobassistantconnector/sessions');
+        $this->_init('emagicone_mobassistantconnector/user');
     }
 
     /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
-     * @return $this
+     * Retrieve option array
+     *
+     * @return array
      */
-    public function loadByUserId($userId)
+    public static function getStatuses()
     {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
-
-        foreach ($matches as $match) {
-            return $this->load($match->getId());
-        }
-
-        return $this;
+        return array(
+            self::STATUS_ENABLED  => Mage::helper('mobassistantconnector')->__('Enabled'),
+            self::STATUS_DISABLED => Mage::helper('mobassistantconnector')->__('Disabled')
+        );
     }
 
 }

@@ -16,28 +16,15 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
+class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Renderer_Permissions extends Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Abstract
 {
 
-    public function _construct()
+    public function render(Varien_Object $row)
     {
-        $this->_init('emagicone_mobassistantconnector/sessions');
-    }
+        $data = $row->getData($this->getColumn()->getIndex());
+        $action_codes = !empty($data) ? explode(';', $data) : '';
 
-    /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
-     * @return $this
-     */
-    public function loadByUserId($userId)
-    {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
-
-        foreach ($matches as $match) {
-            return $this->load($match->getId());
-        }
-
-        return $this;
+        return Emagicone_Mobassistantconnector_Helper_UserPermissions::getUserAllowedActionsAsString($action_codes);
     }
 
 }

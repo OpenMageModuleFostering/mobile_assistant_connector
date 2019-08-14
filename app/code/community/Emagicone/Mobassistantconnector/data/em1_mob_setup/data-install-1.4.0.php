@@ -16,28 +16,10 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
-{
-
-    public function _construct()
-    {
-        $this->_init('emagicone_mobassistantconnector/sessions');
-    }
-
-    /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
-     * @return $this
-     */
-    public function loadByUserId($userId)
-    {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
-
-        foreach ($matches as $match) {
-            return $this->load($match->getId());
-        }
-
-        return $this;
-    }
-
+if (Mage::getStoreConfig('mobassistantconnectorinfosec/emoaccess/login')) {
+    Mage::helper('mobassistantconnector/tableCheck')->moveUserToTable();
+} else {
+    Mage::helper('mobassistantconnector/tableCheck')->addDefaultUser();
 }
+
+Mage::helper('mobassistantconnector/tableCheck')->movePushesToTable();

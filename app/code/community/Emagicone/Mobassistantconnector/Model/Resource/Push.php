@@ -16,28 +16,12 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
+class Emagicone_Mobassistantconnector_Model_Resource_Push extends Mage_Core_Model_Resource_Db_Abstract
 {
 
-    public function _construct()
+    protected function _construct()
     {
-        $this->_init('emagicone_mobassistantconnector/sessions');
-    }
-
-    /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
-     * @return $this
-     */
-    public function loadByUserId($userId)
-    {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
-
-        foreach ($matches as $match) {
-            return $this->load($match->getId());
-        }
-
-        return $this;
+        $this->_init('emagicone_mobassistantconnector/push', 'id');
     }
 
 }

@@ -16,28 +16,30 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
+class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit_Device_Store extends Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Store
 {
 
-    public function _construct()
+    public function render(Varien_Object $row)
     {
-        $this->_init('emagicone_mobassistantconnector/sessions');
-    }
+        $storeGroup = (int)$row->getData($this->getColumn()->getIndex());
 
-    /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
-     * @return $this
-     */
-    public function loadByUserId($userId)
-    {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
-
-        foreach ($matches as $match) {
-            return $this->load($match->getId());
+        if ($storeGroup == -1) {
+            return Mage::helper('mobassistantconnector')->__('All Stores');
+        } else if ($storeGroup < 1) {
+            return '-';
         }
 
-        return $this;
+        $out = '';
+        $data = $this->_getStoreModel()->getStoresStructure(false, [], [$storeGroup]);
+
+        foreach ($data as $website) {
+            $out .= $website['label'] . '<br/>';
+            foreach ($website['children'] as $group) {
+                $out .= str_repeat('&nbsp;', 3) . $group['label'] . '<br/>';
+            }
+        }
+
+        return $out;
     }
 
 }

@@ -16,28 +16,16 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
+class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit_Device_NewCustomer extends Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Text
 {
 
-    public function _construct()
+    public function render(Varien_Object $row)
     {
-        $this->_init('emagicone_mobassistantconnector/sessions');
-    }
+        $img = (int)$row->getData($this->getColumn()->getIndex()) == 1 ? 'yes.png' : 'no.png';
+        $out = "<div style='text-align: center; display: flex'><img style='margin: auto' src='" . $this->getSkinUrl()
+            . "images/emagicone/mobassistantconnector/$img'></div>";
 
-    /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
-     * @return $this
-     */
-    public function loadByUserId($userId)
-    {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
-
-        foreach ($matches as $match) {
-            return $this->load($match->getId());
-        }
-
-        return $this;
+        return $out;
     }
 
 }

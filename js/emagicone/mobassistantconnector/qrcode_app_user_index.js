@@ -1,4 +1,3 @@
-<?php
 /**
  *    This file is part of Mobile Assistant Connector.
  *
@@ -16,28 +15,22 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
-{
+var $j = jQuery.noConflict();
 
-    public function _construct()
-    {
-        $this->_init('emagicone_mobassistantconnector/sessions');
+$j(document).ready(function() {
+    var container = $j("#emagicone_mobassistantconnector_user_grid");
+    container.append("<div style='text-align: center'><div style='display: inline-flex; margin-top: 15px'>" +
+        "<div id='mobassistantconnector_qr_code_app_img'></div>" +
+        "<div style='display: flex; align-items: center; padding-left: 7px'>" +
+        "Magento Mobile Assistant App</div></div></div>");
+    var qrcodeContainer = document.getElementById("mobassistantconnector_qr_code_app_img");
+
+    if (qrcodeContainer != null) {
+        var qrCode = new QRCode(qrcodeContainer, {
+            width : 66,
+            height : 66
+        });
+
+        qrCode.makeCode("https://goo.gl/6Wjxme");
     }
-
-    /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
-     * @return $this
-     */
-    public function loadByUserId($userId)
-    {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
-
-        foreach ($matches as $match) {
-            return $this->load($match->getId());
-        }
-
-        return $this;
-    }
-
-}
+});

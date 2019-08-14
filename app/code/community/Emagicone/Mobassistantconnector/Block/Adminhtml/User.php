@@ -16,28 +16,17 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
+class Emagicone_Mobassistantconnector_Block_Adminhtml_User extends Mage_Adminhtml_Block_Widget_Grid_Container
 {
 
-    public function _construct()
+    public function __construct()
     {
-        $this->_init('emagicone_mobassistantconnector/sessions');
-    }
+        $this->_blockGroup = 'mobassistantconnector';
+        $this->_controller = 'adminhtml_user';
+        $this->_headerText = Mage::helper('mobassistantconnector')->__('Users');
+        $this->_addButtonLabel = Mage::helper('mobassistantconnector')->__('Create New User');
 
-    /**
-     * Check if data exist in table and load them or set new data
-     * @param $userId
-     * @return $this
-     */
-    public function loadByUserId($userId)
-    {
-        $matches = $this->getResourceCollection()->addFieldToFilter('user_id', (int)$userId);
-
-        foreach ($matches as $match) {
-            return $this->load($match->getId());
-        }
-
-        return $this;
+        parent::__construct();
     }
 
 }
