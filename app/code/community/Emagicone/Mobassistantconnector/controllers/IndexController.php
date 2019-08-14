@@ -28,7 +28,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $hash_only;
     private $session_key;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '92';
+    const MB_VERSION = '93';
 
     public function indexAction()
     {
@@ -2360,14 +2360,6 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $row['name'] = '';
         $row['status'] = '';
 
-        Mage::app("default");
-        // Set the variables that we care about.
-        $username = 'yaroslav@emagicone.com'; // Or whatever username we're going with.
-        $password = '!Q2w#E4r'; // Obviously, replace this with whatever the actual password you're looking to validate is.
-
-        $blah = Mage::getModel('admin/user')->authenticate($username, $password);
-
-
         // TODO: Add product storeviews
         Mage::setIsDeveloperMode(true);
 //        Mage::app()->setCurrentStore(Mage::getModel('core/store')->load(Mage_Core_Model_App::ADMIN_STORE_ID));
@@ -2383,27 +2375,6 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                     ->addFieldToSelect(array('product_id', 'name', 'sku'));
                 $salesCollection->addAttributeToFilter('product_id', $this->product_id);
                 $row['total_ordered'] = $this->bd_nice_number($salesCollection->getSize(), true);
-
-//              // TODO: Get all store ids
-                $row['store_ids'] = $product->getStoreIds();
-
-                foreach ($row['store_ids'] as $store_id) {
-                    $product = Mage::getModel('catalog/product')
-                        ->setStoreId($store_id)
-                        ->load($this->product_id);
-                    if ($product->getExistsStoreValueFlag('name')) {
-                        $all_stores['name'][$store_id] = $product->getName();
-                    } else {
-                        $all_stores['name'][$store_id] = $row['name'];
-                    }
-
-                    if ($product->getExistsStoreValueFlag('status')) {
-                        $all_stores['status'][$store_id] = $product->getStatus();
-                    } else {
-                        $all_stores['status'][$store_id] = $row['status'];
-                    }
-                }
-
 
                 $row['id_product'] = $product->getId();
                 $row['type_id'] = $product->getTypeId();
