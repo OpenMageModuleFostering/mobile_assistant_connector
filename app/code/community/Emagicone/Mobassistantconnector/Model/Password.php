@@ -33,6 +33,11 @@ class Emagicone_Mobassistantconnector_Model_Password extends Mage_Core_Model_Con
 			$this->setValue($old_password);
         }
 
+        $sessions = Mage::getModel("emagicone_mobassistantconnector/sessions")->getCollection();
+        foreach ($sessions as $session) {
+            $session->delete();
+        }
+
         return parent::save();
     }
 }

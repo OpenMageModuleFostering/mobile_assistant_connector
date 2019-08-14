@@ -16,25 +16,11 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_Model_Login extends Mage_Core_Model_Config_Data
+class Emagicone_Mobassistantconnector_Model_Sessions extends Mage_Core_Model_Abstract
 {
-    public function save()
+    public function _construct()
     {
-		Mage::app()->cleanCache();
-        $old_login = Mage::getStoreConfig('mobassistantconnectorinfosec/emoaccess/login');
-		
-        $login = $this->getValue();
-
-        if($login == ''){
-            Mage::getSingleton('core/session')->addWarning(Mage::helper('mobassistantconnector/data')->__('<span style="color:green">Mobile Assistant Connector:</span> Login field cannot be empty.  Please specify Login.'));
-			$this->setValue($old_login);
-        }
-
-        $sessions = Mage::getModel("emagicone_mobassistantconnector/sessions")->getCollection();
-        foreach ($sessions as $session) {
-            $session->delete();
-        }
-
-        return parent::save();
+//        parent::_construct();
+        $this->_init('emagicone_mobassistantconnector/sessions');
     }
 }

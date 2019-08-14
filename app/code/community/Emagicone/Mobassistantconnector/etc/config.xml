@@ -15,7 +15,7 @@
 
         <modules>
             <Emagicone_Mobassistantconnector>
-                <version>1.0.0</version>
+                <version>1.2.0.1</version>
             </Emagicone_Mobassistantconnector>
         </modules>
         <frontend>
@@ -64,10 +64,34 @@
                         <order>Emagicone_Mobassistantconnector_Model_Order</order>
                     </rewrite>
                 </sales>
-                <emagiconemobassistantconnector>
+               <emagiconemobassistantconnector>
                     <class>Emagicone_Mobassistantconnector_Model</class>
-                </emagiconemobassistantconnector>				
+                </emagiconemobassistantconnector>
+                <emagicone_mobassistantconnector>
+                    <class>Emagicone_Mobassistantconnector_Model</class>
+                    <resourceModel>emagicone_mobassistantconnector_resource</resourceModel>
+                </emagicone_mobassistantconnector>
+                <emagicone_mobassistantconnector_resource>
+                    <class>Emagicone_Mobassistantconnector_Model_Resource</class>
+                    <entities>
+                        <sessions>
+                            <table>emagicone_mobassistantconnector_sessions</table>
+                        </sessions>
+                        <failed>
+                            <table>emagicone_mobassistantconnector_failed_login</table>
+                        </failed>
+                    </entities>
+                </emagicone_mobassistantconnector_resource>
+
             </models>
+
+            <resources>
+                <emagicone_mobassistantconnector_setup>
+                    <setup>
+                        <module>Emagicone_Mobassistantconnector</module>
+                    </setup>
+                </emagicone_mobassistantconnector_setup>
+             </resources>
 
             <events>
                 <sales_order_save_after>

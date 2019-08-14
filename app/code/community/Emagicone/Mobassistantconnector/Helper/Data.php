@@ -34,16 +34,16 @@ class Emagicone_Mobassistantconnector_Helper_Data extends Mage_Core_Helper_Abstr
         $result = curl_exec( $ch );
 
         if(curl_errno($ch)) {
-            Mage::log(
-                "Push message error while sending CURL request: {$result}",
-                null,
-                'emagicone_mobassistantconnector.log'
-            );
+			Mage::log(
+				"Push message error while sending CURL request: {$result}",
+				null,
+				'emagicone_mobassistantconnector.log'
+			);
         }
 
         curl_close($ch);
-        
-        return $result;
+		
+		return $result;
     }
 
     public function pushSettingsUpgrade() {
@@ -110,6 +110,9 @@ class Emagicone_Mobassistantconnector_Helper_Data extends Mage_Core_Helper_Abstr
                 $error = isset($result['error']) ? $result['error'] : null;
                 if ($newRegId) {
                     // It's duplicated deviceId
+                    if(!is_array($deviceIds)) {
+                        $deviceIds = array($deviceIds);
+                    }
                     if(in_array($newRegId, $deviceIds) && $newRegId != $deviceIds[$id]) {
                         // Loop through the devices and delete old
                         foreach ($deviceIdActions as $settingNum => $deviceId) {
