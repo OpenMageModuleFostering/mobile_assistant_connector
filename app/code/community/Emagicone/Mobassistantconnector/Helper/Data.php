@@ -144,7 +144,7 @@ class Emagicone_Mobassistantconnector_Helper_Data extends Mage_Core_Helper_Abstr
         }
 
         Mage::getModel('core/config')->saveConfig('mobassistantconnectorinfosec/access/google_ids', serialize($deviceIdActions));
-        Mage::app()->init();
+        Mage::app()->init('');
 
         return $deviceIdActions;
     }
@@ -161,7 +161,9 @@ class Emagicone_Mobassistantconnector_Helper_Data extends Mage_Core_Helper_Abstr
 
                 $allowedCurrencies = Mage::getModel('directory/currency')->getConfigAllowCurrencies();
                 $rates = Mage::getModel('directory/currency')->getCurrencyRates($baseCurrencyCode, array_values($allowedCurrencies));
-                $price = $price * $rates[$convert_to];
+                if (!empty($rates[$convert_to])) {
+                    $price = $price * $rates[$convert_to];
+                }
 
                 $iso_code = $convert_to;
             } catch(Exception $e) {
