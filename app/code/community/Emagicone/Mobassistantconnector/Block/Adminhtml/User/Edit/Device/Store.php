@@ -18,7 +18,6 @@
 
 class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit_Device_Store extends Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Store
 {
-
     public function render(Varien_Object $row)
     {
         $storeGroup = (int)$row->getData($this->getColumn()->getIndex());
@@ -30,10 +29,11 @@ class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit_Device_Store ext
         }
 
         $out = '';
-        $data = $this->_getStoreModel()->getStoresStructure(false, [], [$storeGroup]);
+        $data = $this->_getStoreModel()->getStoresStructure(false, array(), array($storeGroup));
 
         foreach ($data as $website) {
             $out .= $website['label'] . '<br/>';
+
             foreach ($website['children'] as $group) {
                 $out .= str_repeat('&nbsp;', 3) . $group['label'] . '<br/>';
             }
@@ -41,5 +41,4 @@ class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit_Device_Store ext
 
         return $out;
     }
-
 }

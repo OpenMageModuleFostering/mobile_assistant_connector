@@ -72,7 +72,8 @@ class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit extends Mage_Adm
      */
     protected function _isAllowedAction($action)
     {
-        return Mage::getSingleton('admin/session')->isAllowed('user/' . $action);
+//        return Mage::getSingleton('admin/session')->isAllowed('mobassistantconnector/mobassistantconnector_users/' . $action);
+        return Mage::helper('mobassistantconnector/userPermissions')->isAllowedAction($action);
     }
 
     /**

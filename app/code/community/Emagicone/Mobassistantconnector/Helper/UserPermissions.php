@@ -291,4 +291,33 @@ class Emagicone_Mobassistantconnector_Helper_UserPermissions extends Mage_Core_H
         return $result;
     }
 
+    public static function isAllowedAction($action)
+    {
+        switch ($action) {
+            case 'index':
+            case 'edit':
+            case 'devices':
+                $result = Mage::getSingleton('admin/session')
+                    ->isAllowed('mobassistantconnector/mobassistantconnector_users/view');
+                break;
+            case 'new':
+            case 'save':
+            case 'delete':
+            case 'massdisable':
+            case 'massenable':
+            case 'massdelete':
+            case 'changestatusaccount':
+            case 'deletedevice':
+            case 'masschangestatusaccount':
+            case 'massDeleteDevice':
+                $result = Mage::getSingleton('admin/session')
+                    ->isAllowed('mobassistantconnector/mobassistantconnector_users/edit');
+                break;
+            default:
+                $result = false;
+                break;
+        }
+
+        return $result;
+    }
 }

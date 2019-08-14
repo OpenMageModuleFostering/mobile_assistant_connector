@@ -16,6 +16,7 @@
  *   You should have received a copy of the GNU General Public License
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controller_Front_Action
 {
 //    public $CartClass = "";
@@ -42,7 +43,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $group_id;
 
 //    const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '100';
+    const MB_VERSION = '101';
 
     public function indexAction()
     {
@@ -2351,22 +2352,21 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $productFinal['product_id'] = $product->getEntityId();
             $productFinal['name'] = $product->getName();
             $productFinal['type_id'] = ucfirst($product->getTypeId());
-//            Mage::helper('catalog/image')->init($product, 'thumbnail');
-//            $thumbnail = $product->getThumbnail();
+            $productImage = $product->getImage();
 
-            $thumbnail = (string)Mage::helper('catalog/image')
-                ->init($product, 'image')
-                ->constrainOnly(TRUE)
-                ->keepAspectRatio(TRUE)
-                ->resize(150, null);
-
-//            $productFinal['thumbnail'] = $product->getMediaConfig()->getMediaUrl($thumbnail);
-            $productFinal['thumbnail'] = $thumbnail;
-
-            if (($thumbnail == 'no_selection') || (!isset($thumbnail))) {
-                $productFinal['thumbnail'] = '';
+            if ($productImage && $productImage != 'no_selection') {
+                try {
+                    $thumbnail = (string)Mage::helper('catalog/image')
+                        ->init($product, 'image')
+                        ->constrainOnly(TRUE)
+                        ->keepAspectRatio(TRUE)
+                        ->resize(150, null);
+                } catch (Exception $e) {
+                    $thumbnail = '';
+                }
             }
 
+            $productFinal['thumbnail'] = $thumbnail;
             $productFinal['sku'] = $product->getSku();
             $productFinal['quantity'] = intval($product->getQty());
             $pArr['price'] = $product->getPrice();
@@ -2386,7 +2386,10 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $productFinal['status_title'] = $statusOptions[$status];
 
             $productFinal['stock_code'] = $isInStock;
-            $productFinal['stock_title'] = $stockOptions[$isInStock];
+
+            if (isset($stockOptions[$isInStock])) {
+                $productFinal['stock_title'] = $stockOptions[$isInStock];
+            }
 
             $productFinal['price'] = $this->_price_format($this->def_currency, 1, $pArr['price'], $this->currency_code);
 

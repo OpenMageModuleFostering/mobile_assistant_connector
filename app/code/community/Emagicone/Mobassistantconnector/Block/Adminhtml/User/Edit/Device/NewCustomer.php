@@ -18,14 +18,12 @@
 
 class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit_Device_NewCustomer extends Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Text
 {
-
     public function render(Varien_Object $row)
     {
         $img = (int)$row->getData($this->getColumn()->getIndex()) == 1 ? 'yes.png' : 'no.png';
-        $out = "<div style='text-align: center; display: flex'><img style='margin: auto' src='" . $this->getSkinUrl()
-            . "images/emagicone/mobassistantconnector/$img'></div>";
+        $out = "<div style='text-align: center; display: flex'><img style='margin: auto' src='"
+            . $this->getSkinUrl("images/emagicone/mobassistantconnector/$img") . "'></div>";
 
         return $out;
     }
-
 }

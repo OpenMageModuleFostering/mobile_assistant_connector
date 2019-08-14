@@ -32,7 +32,7 @@ class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit_Tab_Permissions 
         /*
          * Checking if user have permissions to save information
          */
-        $isElementDisabled = $this->_isAllowedAction('save') ? true : false;
+        $isElementDisabled = !$this->_isAllowedAction('save') ? true : false;
 
         $form = new Varien_Data_Form();
 
@@ -141,7 +141,7 @@ class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Edit_Tab_Permissions 
      */
     protected function _isAllowedAction($action)
     {
-        return Mage::getSingleton('admin/session')->isAllowed('user/' . $action);
+        return Mage::helper('mobassistantconnector/userPermissions')->isAllowedAction($action);
     }
 
 }

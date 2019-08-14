@@ -18,7 +18,6 @@
 
 class Emagicone_Mobassistantconnector_Adminhtml_UserController extends Mage_Adminhtml_Controller_Action
 {
-
     private function changeUserStatus($status)
     {
         $userIds = $this->getRequest()->getPost('user_ids', array());
@@ -419,18 +418,6 @@ class Emagicone_Mobassistantconnector_Adminhtml_UserController extends Mage_Admi
     {
         $action = strtolower($this->getRequest()->getActionName());
 
-        switch ($action) {
-            case 'new':
-            case 'save':
-                return Mage::getSingleton('admin/session')->isAllowed('user/save');
-                break;
-            case 'delete':
-                return Mage::getSingleton('admin/session')->isAllowed('user/delete');
-                break;
-            default:
-                return Mage::getSingleton('admin/session')->isAllowed('user');
-                break;
-        }
+        return Mage::helper('mobassistantconnector/userPermissions')->isAllowedAction($action);
     }
-
 }

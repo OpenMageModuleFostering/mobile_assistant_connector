@@ -18,7 +18,6 @@
 
 class Emagicone_Mobassistantconnector_Model_Observer
 {
-
     private static function getActiveDevices()
     {
         $pushesCollection = Mage::getModel('emagicone_mobassistantconnector/push')->getCollection();
@@ -38,7 +37,7 @@ class Emagicone_Mobassistantconnector_Model_Observer
                 'u.`user_id` = main_table.`user_id`',
                 array()
             )
-            ->where('a.`status` = 1 AND u.`status` = 1 OR main_table.`user_id` IS NULL');
+            ->where('a.`status` = 1 AND u.`status` = 1 OR main_table.`user_id` IS NULL OR d.`account_id` IS NULL');
 
         return $pushesCollection;
     }
@@ -299,5 +298,4 @@ class Emagicone_Mobassistantconnector_Model_Observer
             }
         }
     }
-
 }
