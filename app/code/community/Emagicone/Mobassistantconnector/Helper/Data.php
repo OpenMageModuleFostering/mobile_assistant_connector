@@ -91,8 +91,10 @@ class Emagicone_Mobassistantconnector_Helper_Data extends Mage_Core_Helper_Abstr
     public function proceedGoogleResponse($response, $deviceIds, $deviceIdActions) {
         if ($response) {
             $json = json_decode($response, true);
-            if (json_last_error() != JSON_ERROR_NONE) {
-                $json = array();
+            if (function_exists('json_last_error')) {
+                if (json_last_error() != JSON_ERROR_NONE) {
+                    $json = array();
+                }
             }
         }
         else {
