@@ -28,7 +28,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $hash_only;
     private $session_key;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '86';
+    const MB_VERSION = '87';
 
     public function indexAction()
     {
@@ -561,8 +561,14 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                     ->addFieldToFilter('path', 'currency/options/allow')
                     ->addFieldToFilter('scope_id', $storeId)
                     ->getData();
-                $currencies_array = explode(',', $CurrencyCode[0]['value']);
-                if ($currencies_array[0] == '') {
+
+
+                if (count($CurrencyCode) > 0) {
+                    $currencies_array = explode(',', $CurrencyCode[0]['value']);
+                } else {
+
+                // }
+                // if ($currencies_array[0] == '') {
                     //                        $currencies_array[] = Mage::app()->getStore($storeId)->getCurrentCurrencyCode();
                     $currencies_array = Mage::app()->getStore($storeId)->getAvailableCurrencyCodes();
                 }
@@ -2404,7 +2410,11 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                 $row['name'] = $product->getName();
                 $row['price'] = $product->getPrice();
                 $row['spec_price'] = $product->getSpecialPrice();
-                $row['quantity'] = intval($product->getQuantity());
+                if ($product->isInStock()) {
+                    $row['quantity'] = intval($product->getStockItem()->getQty());
+                } else {
+                    $row['quantity'] = intval($product->getQuantity());
+                }
                 $row['sku'] = $product->getSku();
                 $row['active'] = $product->getStatus();
                 $row['status'] = $product->getStatus();
