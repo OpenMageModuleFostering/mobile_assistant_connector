@@ -16,7 +16,7 @@
  *   along with Mobile Assistant Connector.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-class Emagicone_Mobassistantconnector_IndexController extends Mage_Adminhtml_Controller_Action
+class Emagicone_Mobassistantconnector_Adminhtml_IndexController extends Mage_Adminhtml_Controller_Action
 {
     public  function indexAction()
     {

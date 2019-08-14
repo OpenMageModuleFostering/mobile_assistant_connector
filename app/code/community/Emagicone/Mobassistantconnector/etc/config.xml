@@ -15,7 +15,7 @@
 
         <modules>
             <Emagicone_Mobassistantconnector>
-                <version>1.2.5</version>
+                <version>1.2.7</version>
             </Emagicone_Mobassistantconnector>
         </modules>
         <frontend>
