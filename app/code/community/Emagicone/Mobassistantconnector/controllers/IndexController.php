@@ -1542,7 +1542,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             }
 
             $orderItem['thumbnail'] = $thumbnail;
-            $orderItem['product_price'] = $this->_price_format($order_info['iso_code'], 1, $orderItem['product_price'], $this->currency_code);
+            $orderItem['product_price'] = $this->_price_format($orderItem['iso_code'], 1, $orderItem['product_price'], $this->currency_code);
             $orderItem['product_quantity'] = intval($orderItem['product_quantity']);
             $orderItem['type_id'] = ucfirst($orderItem['type_id']);
             if ($this->currency_code != false) {
@@ -3402,15 +3402,16 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     {
         $currency_symbol = '';
         $price = str_replace(' ', '', $price);
-        $baseCurrencyCode = Mage::app()->getStore()->getBaseCurrencyCode();
+        /*$baseCurrencyCode = Mage::app()->getStore()->getBaseCurrencyCode();
 
         if (!in_array(ucwords($convert_to), Mage::getModel('directory/currency')->getConfigAllowCurrencies())) {
             $convert_to = $baseCurrencyCode;
-        }
+        }*/
 
-        if (strlen($convert_to) == 3) {
+        if ($iso_code != $convert_to && strlen($convert_to) == 3) {
             try {
-                $price = Mage::helper('directory')->currencyConvert($price, $baseCurrencyCode, $convert_to);
+//                $price = Mage::helper('directory')->currencyConvert($price, $baseCurrencyCode, $convert_to);
+                $price = Mage::helper('directory')->currencyConvert($price, $iso_code, $convert_to);
                 $iso_code = $convert_to;
             } catch (Exception $e) {
                 Mage::log(
