@@ -149,13 +149,13 @@ class Emagicone_Mobassistantconnector_Model_Observer
                         Mage::helper('mobassistantconnector')->proceedGoogleResponse($response, array('device_id' => $value['push_device_id'],
                                                                                                                         'app_connection_id' => $value['app_connection_id']));
 
-                        $d_r = Mage::helper('core')->jsonDecode($response, Zend_Json::TYPE_OBJECT);
+/*                        $d_r = Mage::helper('core')->jsonDecode($response, Zend_Json::TYPE_OBJECT);
 
                         Mage::log(
                             "Google response: (multicast_id = {$d_r->multicast_id}, success = {$d_r->success}, failure = {$d_r->failure}, canonical_ids = {$d_r->canonical_ids})",
                             null,
                             'emagicone_mobassistantconnector.log'
-                        );
+                        );*/
                     }
 //                }
             }

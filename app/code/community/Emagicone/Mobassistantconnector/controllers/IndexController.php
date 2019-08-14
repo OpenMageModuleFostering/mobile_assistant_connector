@@ -28,14 +28,14 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $hash_only;
     private $session_key;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '97';
+    const MB_VERSION = '98';
 
     public function indexAction()
     {
         // Mage::app()->cleanCache();
         if (intval(Mage::getStoreConfig('mobassistantconnectorinfosec/emogeneral/status')) != 1) $this->generate_output('module_disabled');
 
-        $this->loadLayout()->renderLayout();
+        // $this->loadLayout()->renderLayout();
 
         $def_currency = $this->_get_default_currency();
         $this->def_currency = $def_currency['currency'];
@@ -268,6 +268,18 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             //        $data = $this->to_json($data);
             $data = Mage::helper('core')->jsonEncode($data);
 
+            // $this->getResponse()->clearHeaders()->setHeader('Content-type', 'application/json');
+            // $this->getResponse()->setBody($data);
+            // $this->getResponse()->sendResponse();
+            // die();
+
+            if ($this->callback) {
+                header('Content-Type: text/javascript;charset=utf-8');
+                die($this->callback . '(' . $data . ');');
+            } else {
+                header('Content-Type: text/javascript;charset=utf-8');
+                die($data);
+            }
             if ($this->callback) {
                 header('Content-Type: text/javascript;charset=utf-8');
                 die($this->callback . '(' . $data . ');');
@@ -1615,6 +1627,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                         ->addObject($invoice)
                         ->addObject($invoice->getOrder());
                     $transactionSave->save();
+                    $order->setIsInProcess(true);
                     $order->addStatusHistoryComment('Invoice was created from Mobile Assistant.', false);
                     $order->save();
                     $result = array('success' => 'true');

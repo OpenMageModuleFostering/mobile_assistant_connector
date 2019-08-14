@@ -96,6 +96,15 @@ class Emagicone_Mobassistantconnector_Helper_Data extends Mage_Core_Helper_Abstr
                 if (json_last_error() != JSON_ERROR_NONE) {
                     $json = array();
                 }
+                    // $d_r = Mage::helper('core')->jsonDecode($response, Zend_Json::TYPE_OBJECT);
+                if (!empty($json)) {
+                    $json_response = var_export($json, true);
+                    Mage::log(
+                        "Google response: ({$json_response})",
+                        null,
+                        'emagicone_mobassistantconnector.log'
+                    );
+                }
             }
         }
         else {
