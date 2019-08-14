@@ -26,7 +26,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     public $def_currency;
     public $currency_code;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '$Revision: 81 $';
+    const MB_VERSION = '$Revision: 82 $';
 
     public function indexAction() {
         Mage::app()->cleanCache();
@@ -105,7 +105,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $this->{$k} = $value;
         }
 
-        if(empty($this->currency_code) || strval($this->currency_code) == 'base_currency') {
+        if(empty($this->currency_code) || strval($this->currency_code) == 'base_currency' || strval($this->currency_code) == 'not_set') {
             $this->currency_code = $this->def_currency;
         }
 
@@ -310,7 +310,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
     protected function is_group_exists($groupId) {
         $exists = false;
-        if(!empty($groupId)) {
+        if(isset($groupId)) {
             try {
                 $name = Mage::app()->getGroup($groupId)->getName();
                 $exists = true;
@@ -1146,18 +1146,46 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $ordersItemsCollection->setPage($this->page, $this->show);
         }
 
+        $block = Mage::app()->getLayout()->createBlock('sales/order_item_renderer_default');
+
         foreach($ordersItemsCollection as $orderItem) {
-            $options = $orderItem->getProductOptions();
-            $thumbnail = $orderItem->getProduct()->getMediaConfig()->getMediaUrl($orderItem->getProduct()->getThumbnail());
+            $block->setItem($orderItem);
+            $_options = $block->getItemOptions();
+
+            $thumbnail_path = $orderItem->getProduct()->getThumbnail();
+            $thumbnail = $orderItem->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
+
+            if(($thumbnail_path == 'no_selection') || (!isset($thumbnail_path))) {
+                $productFinal['thumbnail'] = '';
+            }
 
             $orderItem = $orderItem->toArray();
 
-            //-- get ordered item options
             $orderItem['options'] = array();
-            if(isset($options['options'])){
-                foreach ($options['options'] as $option) {
-                    array_push($orderItem['options'], array($option['label'] => $option['value']));
+            if(isset($_options) && count($_options) > 0){
+                foreach ($_options as $option) {
+                    $orderItem['options'][$option['label']] = $option['value'];
                 }
+            }
+
+            $orderItem['product_options'] = unserialize($orderItem['product_options']);
+            if(isset($orderItem['product_options']['bundle_options'])){
+                foreach ($orderItem['product_options']['bundle_options'] as $option) {
+                    $orderItem['options'][$option['label']] = $option['value'][0]['qty'].'x '.$option['value'][0]['title'];
+                }
+            }
+
+            unset($orderItem['product_options']);
+
+            $module_version = explode(' ', self::MB_VERSION);
+
+            if($module_version[1] > 80 && !empty($orderItem['options'])){
+                $orderItem['prod_options'] = $orderItem['options'];
+                unset($orderItem['options']);
+            }
+
+            if(empty($orderItem['options'])) {
+                unset($orderItem['options']);
             }
 
             $orderItem['thumbnail'] = $thumbnail;
@@ -1720,7 +1748,8 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $row_page['count_ords'] = $ordersCollection->count();
 
         $ordersSum = $this->bd_nice_number($ordersSum);
-        $row_page['sum_ords'] = $this->_price_format($this->def_currency, 1, $ordersSum, 0, 0);
+        // $row_page['sum_ords'] = $this->_price_format($this->def_currency, 1, $ordersSum, 0, 0);
+        $row_page['sum_ords'] = $this->_price_format($this->def_currency, 1, $ordersSum, $this->currency_code, 0);
 
         if(!empty($this->page) && !empty($this->show)) {
             $ordersCollection->clear();
@@ -1863,7 +1892,14 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $productFinal['product_id'] = $product->getEntityId();
             $productFinal['name'] = $product->getName();
             $productFinal['type_id'] = ucfirst($product->getTypeId());
-            $productFinal['thumbnail'] = $product->getMediaConfig()->getMediaUrl($product->getThumbnail());
+//            Mage::helper('catalog/image')->init($product, 'thumbnail');
+            $thumbnail = $product->getThumbnail();
+
+            $productFinal['thumbnail'] = $product->getMediaConfig()->getMediaUrl($thumbnail);
+
+            if(($thumbnail == 'no_selection') || (!isset($thumbnail))) {
+                $productFinal['thumbnail'] = '';
+            }
 
             $productFinal['sku'] = $product->getSku();
             $productFinal['quantity'] = intval($product->getQty());
@@ -2001,7 +2037,12 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         }
 
         foreach ($salesCollection as $order) {
-            $thumbnail = $order->getProduct()->getMediaConfig()->getMediaUrl($order->getProduct()->getThumbnail());
+            $thumbnail_path = $order->getProduct()->getThumbnail();
+            $thumbnail = $order->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
+            
+            if(($thumbnail_path == 'no_selection') || (!isset($thumbnail_path))) {
+                $thumbnail = '';
+            }
 
             $ord_prodArr = $order->toArray();
 
@@ -2012,10 +2053,10 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             } else {
                 unset($ord_prodArr['orig_price']);
             }
+            unset($ord_prodArr['product']);
             $ord_prodArr['quantity'] = intval($ord_prodArr['quantity']);
             $ord_prodArr['order_id'] = $ord_prodArr['main_id'];
             $ord_prodArr['type_id'] = ucfirst($ord_prodArr['type_id']);
-
 
             $ordered_products[] = $ord_prodArr;
         }
@@ -2151,6 +2192,10 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $currency_symbol = '';
         $price = str_replace(' ', '', $price);
         $baseCurrencyCode = Mage::app()->getStore()->getBaseCurrencyCode();
+
+        if(!in_array(ucwords($convert_to), Mage::getModel('directory/currency')->getConfigAllowCurrencies())) {
+            $convert_to = $baseCurrencyCode;
+        }
 
         if(strlen($convert_to) == 3){
             try {
