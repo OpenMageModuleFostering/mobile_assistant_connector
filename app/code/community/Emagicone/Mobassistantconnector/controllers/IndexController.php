@@ -28,7 +28,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $hash_only;
     private $session_key;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '89';
+    const MB_VERSION = '90';
 
     public function indexAction()
     {
@@ -2432,7 +2432,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                     unset($row['spec_price']);
                 }
 
-                $row['id_image'] = (string)Mage::helper('catalog/image')->init($product, 'image')->resize(256);
+                $row['id_image'] = (string)Mage::helper('catalog/image')->init($product, 'image')->constrainOnly(TRUE)->keepAspectRatio(TRUE)->keepFrame(FALSE)->resize(256);
                 $row['id_image_large'] = (string)Mage::helper('catalog/image')->init($product, 'image')->constrainOnly(TRUE)->keepAspectRatio(TRUE)->keepFrame(FALSE)->resize(800);
             }
 

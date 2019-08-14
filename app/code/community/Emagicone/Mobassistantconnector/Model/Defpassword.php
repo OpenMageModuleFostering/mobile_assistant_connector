@@ -20,30 +20,30 @@ class Emagicone_Mobassistantconnector_Model_Defpassword extends Mage_Core_Model_
 {
     public function toOptionArray()
     {
-		Mage::app()->cleanCache();
+        Mage::app()->cleanCache();
+
+        $tablePrefix = (string)Mage::getConfig()->getTablePrefix();
 
         $db = Mage::getSingleton('core/resource')->getConnection('core_write');
-        if (!$db->showTableStatus('emagicone_mobassistantconnector_sessions')) {
-            $db->query("CREATE TABLE `" . (string)Mage::getConfig()->getNode('global/resources/default_setup/connection/dbname') .
-                    (string)Mage::getConfig()->getTablePrefix() . ".emagicone_mobassistantconnector_sessions` (
+        if (!$db->showTableStatus($tablePrefix . 'emagicone_mobassistantconnector_sessions')) {
+            $db->query("CREATE TABLE `" .
+                        $tablePrefix . "emagicone_mobassistantconnector_sessions` (
                         `session_id` int(11) NOT NULL auto_increment,
                         `session_key` varchar(100) NOT NULL default '',
                         `date_added` int(11) NOT NULL,
                         PRIMARY KEY (`session_id`)
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;");
         }
-        if (!$db->showTableStatus('emagicone_mobassistantconnector_failed_login')) {
-            $db->query("CREATE TABLE `" . (string)Mage::getConfig()->getNode('global/resources/default_setup/connection/dbname') .
-                    (string)Mage::getConfig()->getTablePrefix() . "emagicone_mobassistantconnector_failed_login` (
+        if (!$db->showTableStatus($tablePrefix . 'emagicone_mobassistantconnector_failed_login')) {
+            $db->query("CREATE TABLE `" .
+                        $tablePrefix . "emagicone_mobassistantconnector_failed_login` (
                         `attempt_id` int(11) NOT NULL auto_increment,
                         `ip` varchar(20) NOT NULL default '',
                         `date_added` int(11) NOT NULL,
                         PRIMARY KEY (`attempt_id`)
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;");
         }
-
-
-
+        
         $password = Mage::getStoreConfig('mobassistantconnectorinfosec/emoaccess/password');
         if($password === 'c4ca4238a0b923820dcc509a6f75849b') {
             Mage::getSingleton('core/session')->addNotice(Mage::helper('mobassistantconnector/data')->__('<span style="color:green">Mobile Assistant Connector: </span> Default password is "1". Please change it because of security reasons!'));
