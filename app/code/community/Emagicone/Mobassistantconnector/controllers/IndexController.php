@@ -43,7 +43,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $group_id;
 
 //    const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '102';
+    const MB_VERSION = '103';
 
     public function indexAction()
     {
@@ -338,6 +338,8 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
         if (!is_array($data)) {
             $data = array($data);
+        } else {
+            $data['module_response'] = '1';
         }
 
         if (is_array($data)) {
@@ -1646,33 +1648,38 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
     protected function get_order_pdf()
     {
-        if (!empty($this->order_id)) {
-    //        $order = Mage::getModel('sales/order')->load($this->order_id);
-            $invoices = Mage::getResourceModel('sales/order_invoice_collection')
-                ->setOrderFilter($this->order_id)
-                ->load();
-            if ($invoices->getSize() > 0) {
-
-                try {
-                    $pdf = Mage::getModel('sales/order_pdf_invoice')->getPdf($invoices);
-
-                    $this->_prepareDownloadResponse(
-                        'invoice'.Mage::getSingleton('core/date')->date('Y-m-d_H-i-s').'.pdf', $pdf->render(),
-                        'application/pdf'
-                    );
-                } catch (Exception $e) {
-                    echo $e->getMessage();
-                }
-            } else {
-//                return false;
-                return;
-            }
-        } else {
-//            return false;
+        if (empty($this->order_id)) {
             return;
         }
 
-//        return Mage::app()->getResponse();
+        $order = Mage::getModel('sales/order')->load($this->order_id);
+        $invoiceIds = $order->getInvoiceCollection()->getAllIds();
+
+        Mage::getModel('core/app_emulation')->startEnvironmentEmulation(0, Mage_Core_Model_App_Area::AREA_ADMINHTML);
+
+        // Get all order invoices
+        $invoices = array();
+        $count = count($invoiceIds);
+        for ($i = 0; $i < $count; $i++ ) {
+            $invoices[] = Mage::getModel('sales/order_invoice')->load($invoiceIds[$i]);
+        }
+
+        if (empty($invoices)) {
+            return;
+        }
+
+        try {
+            $pdf = Mage::getModel('sales/order_pdf_invoice')->getPdf($invoices);
+
+            $this->_prepareDownloadResponse(
+                'invoice' . Mage::getSingleton('core/date')->date('Y-m-d_H-i-s') . '.pdf',
+                $pdf->render(),
+                'application/pdf'
+            );
+        } catch (Exception $e) {
+            echo $e->getMessage();
+        }
+
         die(Mage::app()->getResponse());
     }
 
