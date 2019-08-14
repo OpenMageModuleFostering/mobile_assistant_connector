@@ -110,6 +110,7 @@ class Emagicone_Mobassistantconnector_Model_Observer
                         $storeUrl = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
                         $storeUrl = str_replace('http://', '',  $storeUrl);
                         $storeUrl = str_replace('https://', '',  $storeUrl);
+                        $storeUrl = rtrim($storeUrl, '/'  );
 
                         preg_replace('/\/*$/i', '', $storeUrl);
 

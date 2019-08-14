@@ -678,7 +678,8 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         // $row['count_orders'] = $ordersCollection->getSize();
         $row['count_orders'] = $first['count_orders'];
 
-        $nice_nm = $this->bd_nice_number($ordersSum);
+        // $nice_nm = $this->bd_nice_number($ordersSum);
+        $nice_nm = $ordersSum;
 
         $row['total_sales'] = $this->_price_format($this->def_currency, 1, $nice_nm, $this->currency_code, 0, true);
         $store_stats = array_merge($store_stats, $row);
@@ -1360,7 +1361,8 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         }
 
         if (!empty($this->page) && !empty($this->show)) {
-            $ordersItemsCollection->setPage($this->page, $this->show);
+            $ordersItemsCollection->getSelect()->limit($this->show, ($this->page - 1) * $this->show);
+            // $ordersItemsCollection->setPage($this->page, $this->show);
         }
 
         $block = Mage::app()->getLayout()->createBlock('sales/order_item_renderer_default');

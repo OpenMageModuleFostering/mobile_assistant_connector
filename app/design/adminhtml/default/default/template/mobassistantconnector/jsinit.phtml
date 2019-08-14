@@ -4,6 +4,7 @@
     $store_url = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
     $store_url = str_replace('http://', '', $store_url);
     $store_url = str_replace('https://', '', $store_url);
+    $store_url = rtrim($store_url, '/'  );
     preg_replace('/\/*$/i', '', $store_url);
     $array['url'] = $store_url;
     $array['login'] = $login;
