@@ -28,7 +28,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $hash_only;
     private $session_key;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '93';
+    const MB_VERSION = '94';
 
     public function indexAction()
     {
@@ -1437,75 +1437,81 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
             $cur_order = Mage::getModel('sales/order')->load($this->order_id);
 
-            $actions = array();
+            if (!is_null($cur_order->getEntityId())) {
 
-            if ($cur_order->canCancel()) {
-                $actions[] = 'cancel';
-            }
+                $actions = array();
 
-            if ($cur_order->canHold()) {
-                $actions[] = 'hold';
-            }
-
-            if ($cur_order->canUnhold()) {
-                $actions[] = 'unhold';
-            }
-
-            if ($cur_order->canShip()) {
-                $actions[] = 'ship';
-            }
-
-            if ($cur_order->canInvoice()) {
-                $actions[] = 'invoice';
-            }
-
-            if ($cur_order->hasInvoices()) {
-                $pdf_invoice = 1;
-            }
-
-            $cus_id = $cur_order->getCustomerId();
-
-            $customer_data = Mage::getModel('customer/customer')->load($cus_id);
-
-            $customerAddressId = $customer_data->getDefaultBilling();
-            if ($customerAddressId) {
-                $address = Mage::getModel('customer/address')->load($customerAddressId)->toArray();
-                if (count($address) > 1) {
-                    $order_info['telephone'] = $address['telephone'];
-                }
-            }
-
-            if (empty($order_info['telephone'])) {
-                $order_info['telephone'] = '';
-            }
-            $order_info['shipping_method_mag'] = $cur_order->getShippingDescription();
-            $order_info['payment_method_mag'] = $cur_order->getPayment()->getMethodInstance()->getTitle();
-
-
-            $shipmentCollection = Mage::getResourceModel('sales/order_shipment_collection')
-                ->setOrderFilter($cur_order)
-                ->load();
-            $tracks = array();
-            foreach ($shipmentCollection as $shipment) {
-                foreach ($shipment->getAllTracks() as $tracknum) {
-                    $track['track_number'] = $tracknum->getTrackNumber();
-                    $track['title'] = $tracknum->getTitle();
-                    $track['carrier_code'] = $tracknum->getCarrierCode();
-                    $track['created_at'] = $tracknum->getCreatedAt();
-
-                    $tracks[] = $track;
+                if ($cur_order->canCancel()) {
+                    $actions[] = 'cancel';
                 }
 
-            }
+                if ($cur_order->canHold()) {
+                    $actions[] = 'hold';
+                }
 
-            $order_full_info = array('order_info'       => $order_info,
-                                     'order_products'   => $order_products,
-                                     'o_products_count' => $count_prods,
-                                     'order_tracking'   => $tracks,
-                                     'actions'          => $actions);
+                if ($cur_order->canUnhold()) {
+                    $actions[] = 'unhold';
+                }
 
-            if ($pdf_invoice) {
-                $order_full_info['pdf_invoice'] = $pdf_invoice;
+                if ($cur_order->canShip()) {
+                    $actions[] = 'ship';
+                }
+
+                if ($cur_order->canInvoice()) {
+                    $actions[] = 'invoice';
+                }
+
+                if ($cur_order->hasInvoices()) {
+                    $pdf_invoice = 1;
+                }
+
+                $cus_id = $cur_order->getCustomerId();
+
+                $customer_data = Mage::getModel('customer/customer')->load($cus_id);
+
+                $customerAddressId = $customer_data->getDefaultBilling();
+                if ($customerAddressId) {
+                    $address = Mage::getModel('customer/address')->load($customerAddressId)->toArray();
+                    if (count($address) > 1) {
+                        $order_info['telephone'] = $address['telephone'];
+                    }
+                }
+
+                if (empty($order_info['telephone'])) {
+                    $order_info['telephone'] = '';
+                }
+                $order_info['shipping_method_mag'] = $cur_order->getShippingDescription();
+                $order_info['payment_method_mag'] = $cur_order->getPayment()->getMethodInstance()->getTitle();
+
+
+                $shipmentCollection = Mage::getResourceModel('sales/order_shipment_collection')
+                    ->setOrderFilter($cur_order)
+                    ->load();
+                $tracks = array();
+                foreach ($shipmentCollection as $shipment) {
+                    foreach ($shipment->getAllTracks() as $tracknum) {
+                        $track['track_number'] = $tracknum->getTrackNumber();
+                        $track['title'] = $tracknum->getTitle();
+                        $track['carrier_code'] = $tracknum->getCarrierCode();
+                        $track['created_at'] = $tracknum->getCreatedAt();
+
+                        $tracks[] = $track;
+                    }
+
+                }
+
+                $order_full_info = array('order_info'       => $order_info,
+                                         'order_products'   => $order_products,
+                                         'o_products_count' => $count_prods,
+                                         'order_tracking'   => $tracks,
+                                         'actions'          => $actions);
+
+                if ($pdf_invoice) {
+                    $order_full_info['pdf_invoice'] = $pdf_invoice;
+                }
+                
+            } else {
+                $order_full_info = false;
             }
 
             return $order_full_info;
@@ -1788,6 +1794,10 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $options = array();
         $originalCarriers = Mage::getSingleton('shipping/config')->getAllCarriers();
 
+        if (isset($this->store_group_id)) {
+            $this->group_id = $this->store_group_id;
+        }
+        
         if (!$this->group_id) {
             $this->group_id = null;
         }
@@ -2023,7 +2033,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $ordersCollection->getSelect()->limit($this->show, ($this->page - 1) * $this->show);
         }
 
-        $customer_orders = null;
+        $customer_orders = array();
         foreach ($ordersCollection as $order) {
             $o_status_label = $order->getStatusLabel();
             $c_order['store_id'] = $order->getStore()->getId();
@@ -2534,7 +2544,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $this->search_val = $this->search_carts;
         }
         if (!empty($this->search_val) && preg_match('/^\d+(?:,\d+)*$/', $this->search_val)) {
-            $quotes->addAttributeToFilter('main_table.entity_id', array('eq' => intval($this->search_val)));
+            $quotes->addFieldToFilter('main_table.entity_id', array('eq' => intval($this->search_val)));
         } else if (!empty($this->search_val)) {
             $quotes->getSelect()->where("main_table.`customer_email` LIKE '%" . $this->search_val . "%' OR main_table.`customer_firstname` LIKE '%" . $this->search_val . "%' OR main_table.`customer_lastname` LIKE '%" . $this->search_val . "%' OR CONCAT(`customer_firstname`, ' ', `customer_lastname`) LIKE '%" . $this->search_val . "%'");
         }
