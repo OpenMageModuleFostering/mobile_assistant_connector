@@ -2731,9 +2731,9 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                         $large = Mage::helper('catalog/image')->init($product, 'image', $image['file'])->resize(800)
                             ->keepAspectRatio(true)->constrainOnly(true)->keepFrame(false);
                         $large_image = $large->__toString();
-                        $images[] = ['large' => $large_image,
+                        $images[] = array('large' => $large_image,
                                      'small' => $small_image
-                        ];
+                        );
                     }
                 }
 
