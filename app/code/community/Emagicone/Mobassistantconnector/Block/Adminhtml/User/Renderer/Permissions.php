@@ -22,7 +22,7 @@ class Emagicone_Mobassistantconnector_Block_Adminhtml_User_Renderer_Permissions 
     public function render(Varien_Object $row)
     {
         $data = $row->getData($this->getColumn()->getIndex());
-        $action_codes = !empty($data) ? explode(';', $data) : '';
+        $action_codes = !empty($data) ? explode(';', $data) : array();
 
         return Emagicone_Mobassistantconnector_Helper_UserPermissions::getUserAllowedActionsAsString($action_codes);
     }

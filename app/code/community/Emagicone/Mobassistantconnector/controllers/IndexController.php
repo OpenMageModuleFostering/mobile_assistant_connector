@@ -42,7 +42,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $group_id;
 
 //    const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '99';
+    const MB_VERSION = '100';
 
     public function indexAction()
     {

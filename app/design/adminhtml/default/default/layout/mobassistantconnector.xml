@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <layout>
-    <adminhtml_system_config_edit>
+    <!--<adminhtml_system_config_edit>
         <reference name="content">
             <block type="core/template" name="mobassistantconnector"  template="mobassistantconnector/jsinit.phtml"/>
         </reference>
-    </adminhtml_system_config_edit>
+    </adminhtml_system_config_edit>-->
 
     <adminhtml_user_grid>
         <block type="core/text_list" name="root" output="toHtml">
