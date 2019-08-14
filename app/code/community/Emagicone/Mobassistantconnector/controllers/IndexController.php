@@ -26,7 +26,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     public $def_currency;
     public $currency_code;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '$Revision: 82 $';
+    const MB_VERSION = '$Revision: 83 $';
 
     public function indexAction() {
         Mage::app()->cleanCache();
@@ -47,7 +47,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         }
 
         if(!$this->check_auth()) {
-            $this->generate_output('auth_error');
+           $this->generate_output('auth_error');
         }
 
         $request_params = Mage::app()->getRequest()->getParams();
@@ -98,7 +98,12 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             'push_order_statuses' => 'STR',
             'currency_code' => 'STR',
             'is_mail' => 'INT',
-            'store_group_id' => 'INT'
+            'store_group_id' => 'INT',
+            'carts_from' => 'STR',
+            'carts_to' => 'STR',
+            'cart_id' => 'STR',
+            'search_carts' => 'STR',
+            'show_unregistered_customers' => 'INT',
         ));
 
         foreach($params as $k => $value) {
@@ -451,6 +456,12 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $ordersCollection->getSelect()->where(new Zend_Db_Expr("(CONVERT_TZ(main_table.created_at, '+00:00',  '".$offset."')) <= '" . (date('Y-m-d H:i:s', (strtotime($date_to)))) ."'"));
         }
 
+        $ordersCollection->getSelect()->columns('SUM(base_grand_total) as sum_base_grand_total,COUNT(*) AS count_orders');
+
+        // $ordersCollection->getSelect()->limit(1);
+
+        $first = $ordersCollection->getFirstItem();
+
         /*
         if(!empty($date_from) && !empty($date_to)) {
             $ordersCollection->addFieldToFilter('main_table.created_at',
@@ -462,10 +473,10 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
 
         // var_dump($ordersCollection->getSelect()->__toString());die();
 
-        $ordersSum = array_sum($ordersCollection->getColumnValues('base_grand_total'));
-        $row['count_orders'] = $ordersCollection->getSize();
-
-
+        $ordersSum = $first['sum_base_grand_total'];
+        // $ordersSum = array_sum($ordersCollection->getColumnValues('base_grand_total'));
+        // $row['count_orders'] = $ordersCollection->getSize();
+        $row['count_orders'] = $first['count_orders'];
 
         $nice_nm = $this->bd_nice_number($ordersSum);
 
@@ -503,7 +514,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         if(strlen($this->statuses) > 0) {
             $salesCollection->getSelect()->where(new Zend_Db_Expr("order.status IN ({$this->statuses})"));
         }
-        $store_stats['count_products'] = $this->bd_nice_number($salesCollection->count(), true);
+        $store_stats['count_products'] = $this->bd_nice_number($salesCollection->getSize(), true);
 
         $salesCollection->setOrder('item_id','DESC');
 
@@ -513,6 +524,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $ordersCollection->addAttributeToFilter('entity_id', array('gt' => intval($this->last_order_id)));
 
             $ordersCollection->setOrder('entity_id','DESC');
+            $ordersCollection->getSelect()->limit(1);
 
             $lastOrder = $ordersCollection->getFirstItem();
 
@@ -1156,7 +1168,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $thumbnail = $orderItem->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
 
             if(($thumbnail_path == 'no_selection') || (!isset($thumbnail_path))) {
-                $productFinal['thumbnail'] = '';
+                $thumbnail = '';
             }
 
             $orderItem = $orderItem->toArray();
@@ -1748,7 +1760,6 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         $row_page['count_ords'] = $ordersCollection->count();
 
         $ordersSum = $this->bd_nice_number($ordersSum);
-        // $row_page['sum_ords'] = $this->_price_format($this->def_currency, 1, $ordersSum, 0, 0);
         $row_page['sum_ords'] = $this->_price_format($this->def_currency, 1, $ordersSum, $this->currency_code, 0);
 
         if(!empty($this->page) && !empty($this->show)) {
@@ -2039,7 +2050,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         foreach ($salesCollection as $order) {
             $thumbnail_path = $order->getProduct()->getThumbnail();
             $thumbnail = $order->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
-            
+
             if(($thumbnail_path == 'no_selection') || (!isset($thumbnail_path))) {
                 $thumbnail = '';
             }
@@ -2053,7 +2064,9 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             } else {
                 unset($ord_prodArr['orig_price']);
             }
+
             unset($ord_prodArr['product']);
+
             $ord_prodArr['quantity'] = intval($ord_prodArr['quantity']);
             $ord_prodArr['order_id'] = $ord_prodArr['main_id'];
             $ord_prodArr['type_id'] = ucfirst($ord_prodArr['type_id']);
@@ -2187,6 +2200,341 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         return $this->_flatEnabled[$this->getStoreId()];
     }
 
+    protected function get_abandoned_carts_list() {
+        $abandoned_carts = array();
+        $offset = $this->_get_timezone_offset();
+
+
+        $storeTableName = Mage::getSingleton('core/resource')->getTableName('core/store');
+        $customerTableName = Mage::getSingleton('core/resource')->getTableName('customer_entity');
+
+        $quotes = Mage::getResourceModel('sales/quote_collection');
+
+        if (!isset($this->group_id)) {
+            if($this->is_group_exists($this->group_id)) {
+                $quotes->getSelect()
+                    ->joinLeft(
+                        array('cs' => $storeTableName),
+                        "cs.store_id = main_table.store_id",
+                        array());
+                $quotes->getSelect()->where(new Zend_Db_Expr("cs.group_id = " . $this->group_id));
+            }
+        }
+
+        if (!empty($this->search_carts)) {
+            $this->search_val = $this->search_carts;
+        }
+        if (!empty($this->search_val) && preg_match('/^\d+(?:,\d+)*$/', $this->search_val)) {
+            $quotes->addAttributeToFilter('main_table.entity_id', array('eq' => intval($this->search_val)));
+        } else if(!empty($this->search_val)) {
+            $quotes->getSelect()->where("main_table.`customer_email` LIKE '%".$this->search_val."%' OR main_table.`customer_firstname` LIKE '%".$this->search_val."%' OR main_table.`customer_lastname` LIKE '%".$this->search_val."%' OR CONCAT(`customer_firstname`, ' ', `customer_lastname`) LIKE '%".$this->search_val."%'");
+        }
+
+        if (!empty($this->carts_from)) {
+            $this->carts_from = Mage::getModel('core/date')->timestamp(strtotime($this->carts_from));
+            $this->carts_from = date('Y-m-d H:i:s', $this->carts_from);
+            $quotes->addFieldToFilter('main_table.updated_at', array('from' => $this->carts_from));
+        }
+
+        if (!empty($this->carts_to)) {
+            $this->carts_to = Mage::getModel('core/date')->timestamp(strtotime($this->carts_to));
+            $this->carts_to = date('Y-m-d H:i:s', $this->carts_to);
+            $quotes->addFieldToFilter('main_table.updated_at', array('to' => $this->carts_to));
+        }
+
+        // if (!empty($this->with_customer_details)) {
+        $quotes->addFieldToFilter('main_table.customer_email', array('notnull' => true));
+        // }
+
+        if (empty($this->show_unregistered_customers)) {
+            $quotes->addFieldToFilter('main_table.customer_id', array('notnull' => true));
+            $quotes->getSelect()
+                ->joinInner(
+                    array('c' => $customerTableName),
+                    "c.entity_id = main_table.customer_id",
+                    array());
+        }
+
+        $quotes->addFieldToFilter('main_table.is_active', array('eq' => 1));
+        $quotes->addFieldToFilter('main_table.items_count', array('gt' => 0));
+
+//        $quotes->load();
+        $cart_total_res['total_sum'] = $this->_price_format($this->def_currency, 1, array_sum($quotes->getColumnValues('base_grand_total')), $this->currency_code);
+        $cart_total_res['total_count'] = $quotes->getSize();
+//        $resource = Mage::getSingleton('core/resource');
+//        $readConnection = $resource->getConnection('core_read');
+//        $cart_total_res['total_count'] = $readConnection->fetchOne($quotes->getSelectCountSql());
+
+//        $quotes->clear();
+
+        if(!empty($this->page) && !empty($this->show)) {
+            $quotes->clear();
+            $quotes->getSelect()->limit($this->show, ($this->page-1)*$this->show);
+        }
+
+        switch ($this->sort_by) {
+            case 'id':
+                $quotes->getSelect()->order( array('main_table'.'.entity_id DESC'));
+                break;
+            case 'date':
+                $quotes->getSelect()->order( array('main_table'.'.updated_at DESC'));
+                break;
+            case 'name':
+                $quotes->getSelect()->order( array('main_table'.'.customer_firstname ASC'));
+                break;
+            default:
+                $quotes->getSelect()->order( array('main_table'.'.updated_at DESC'));
+                break;
+        }
+        $carts = array();
+//        $collection->prepareForAbandonedReport();
+        foreach ($quotes as $quote) {
+            if (empty($this->show_unregistered_customers)) {
+                // Show only real customers
+                $customer_id = $quote->getCustomer()->getId();
+                if(empty($customer_id)) {
+                    continue;
+                }
+            }
+
+            $cart['id_cart'] = $quote->getEntityId();
+
+            $dateTimestamp = Mage::getModel('core/date')->timestamp(strtotime($quote->getUpdatedAt()));
+            $cart['date_add'] = date('Y-m-d H:i:s', $dateTimestamp);
+
+            $cart['id_shop'] = $quote->getStoreId();
+            $cart['id_currency'] = $quote->getBaseCurrenceCode();
+            $cart['id_customer'] = $quote->getCustomerId();
+
+            $cart['email'] = $quote->getCustomerEmail();
+            $cart['customer'] = $quote->getCustomerFirstname() . ' ' .$quote->getCustomerLastname();
+
+            if(!is_null($quote->getCustomer()->getId())){
+                $cart['email'] = $quote->getCustomer()->getEmail();
+                $cart['customer'] = $quote->getCustomer()->getFirstname() . ' ' .$quote->getCustomer()->getLastname();
+            }
+
+            if ($storeName = Mage::getModel('core/store')->load($quote->getStoreId())->getName())
+                $cart['shop_name'] = $storeName;
+            else
+                $cart['shop_name'] = '';
+
+            $cart['carrier_name'] = $quote->getEntityId();
+//            $cart['cart_total'] = $quote->getBaseGrandTotal();
+            $cart['cart_total'] = $quote->getBaseSubtotalWithDiscount();
+
+            $cart['cart_total'] = $this->_price_format($this->def_currency, 3, $cart['cart_total'], $this->currency_code);
+
+            $cart['cart_count_products'] = $quote->getItemsCount();
+
+            $carts[] = $cart;
+        }
+
+        // Sort by name
+        if($this->sort_by == 'name') {
+            foreach($carts as $cart){
+                foreach($cart as $key=>$value){
+                    if(!isset($sortArray[$key])){
+                        $sortArray[$key] = array();
+                    }
+                    $sortArray[$key][] = $value;
+                }
+            }
+
+            $orderby = "customer"; //change this to whatever key you want from the array
+
+            array_multisort($sortArray[$orderby],SORT_ASC,$carts);
+        }
+
+        return array('abandoned_carts' => $carts,
+            'abandoned_carts_count' => $cart_total_res['total_count'],
+            'abandoned_carts_total' => $cart_total_res['total_sum'],
+        );
+
+        return $quote;
+    }
+
+    protected function get_abandoned_cart_details(){
+        $cart_info = array();
+        $cart_products = array();
+
+        if ((int)$this->cart_id < 1)
+            return false;
+
+        $offset = $this->_get_timezone_offset();
+
+        $storeTableName = Mage::getSingleton('core/resource')->getTableName('core/store');
+
+        $quotes = Mage::getResourceModel('reports/quote_collection');
+
+        if (!isset($this->group_id)) {
+            if($this->is_group_exists($this->group_id)) {
+                $quotes->getSelect()
+                    ->joinLeft(
+                        array('cs' => $storeTableName),
+                        "cs.store_id = main_table.store_id",
+                        array());
+                $quotes->getSelect()->where(new Zend_Db_Expr("cs.group_id = " . $this->group_id));
+            }
+        }
+
+        if (!empty($this->cart_id) && preg_match('/^\d+(?:,\d+)*$/', $this->cart_id)) {
+            $quotes->addFieldToFilter('entity_id', array('eq' => intval($this->cart_id)));
+        }
+
+//        $quotes->addFieldToFilter('is_active', array('eq' => 1));
+//        $quotes->addFieldToFilter('items_count', array('qt' => 1));
+
+        if(!empty($this->page) && !empty($this->show)) {
+            $quotes->getSelect()->limit($this->show, ($this->page-1)*$this->show);
+        }
+
+        foreach ($quotes as $quote) {
+            $cart_info['id_currency'] = $quote->getQuoteCurrencyCode();
+
+            $cart_info['id_cart'] = $quote->getEntityId();
+            $cart_info['id_shop'] = $quote->getStoreId();
+            $cart_info['id_currency'] = $quote->getQuoteCurrencyCode();
+
+            $created_at_timestamp = Mage::getModel('core/date')->timestamp(strtotime($quote->getCreatedAt()));
+            $cart_info['date_add'] = date('Y-m-d H:i:s', $created_at_timestamp);
+
+            $updated_at_timestamp = Mage::getModel('core/date')->timestamp(strtotime($quote->getUpdatedAt()));
+            $cart_info['date_up'] = date('Y-m-d H:i:s', $updated_at_timestamp);
+
+            $cart_info['id_customer'] = $quote->getCustomerId();
+            $cart_info['email'] = $quote->getCustomerEmail();
+            $cart_info['customer'] = $quote->getCustomerFirstname() . ' ' .$quote->getCustomerLastname();
+
+            $cart_info['phone'] = '';
+
+            if(!is_null($quote->getCustomer()->getId())){
+                $cart_info['email'] = $quote->getCustomer()->getEmail();
+                $cart_info['customer'] = $quote->getCustomer()->getFirstname() . ' ' .$quote->getCustomer()->getLastname();
+                $cart_info['account_registered'] = $quote->getCustomer()->getCreatedAt();
+                $customer = Mage::getModel('customer/customer')->load($quote->getCustomer()->getId());
+                $customerAddressId = $customer->getDefaultBilling();
+                if($customerAddressId) {
+                    $address = Mage::getModel('customer/address')->load($customerAddressId)->toArray();
+                    if(count($address) > 1) {
+                        $cart_info['phone'] = $address['telephone'];
+                    }
+                }
+            } else {
+                $cart_info['account_registered'] = $quote->getCreatedAt();
+            }
+
+            $account_registered_timestamp = Mage::getModel('core/date')->timestamp(strtotime($cart_info['account_registered']));
+            $cart_info['account_registered'] = date('Y-m-d H:i:s', $account_registered_timestamp);
+
+            if ($storeName = Mage::getModel('core/store')->load($quote->getStoreId())->getName())
+                $cart_info['shop_name'] = $storeName;
+            else
+                $cart_info['shop_name'] = '';
+
+            $cart_info['carrier_name'] = $quote->getEntityId();
+//            $cart_info['cart_total'] = $quote->getBaseGrandTotal();
+            $cart_info['cart_total'] = $this->_price_format($this->def_currency, 3, $quote->getBaseSubtotalWithDiscount(), $this->currency_code);
+            $cart_info['cart_count_products'] = $quote->getItemsCount();
+
+            $itemsCollection = $quote->getItemsCollection();
+            foreach ($itemsCollection as $item) {
+                if(!is_null($item->getParentItem())){
+                    continue;
+                }
+                $product = array();
+                $product['option_ids'] = array();
+                $product['id_product'] = $item->getProduct()->getEntityId();
+                $product['product_name'] = $item->getName();
+                $product['product_type'] = $item->getProductType();
+                $product['product_quantity'] = $item->getQty();
+                $product['sku'] = $item->getSku();
+                $product['product_price'] = $item->getRowTotal();
+                $product['product_price'] = $this->_price_format($this->def_currency, 3, $product['product_price'], $this->currency_code);
+
+                $thumbnail_path = $item->getProduct()->getThumbnail();
+                $thumbnail = $item->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
+
+                if(($thumbnail_path == 'no_selection') || (!isset($thumbnail_path))) {
+                    $thumbnail = '';
+                }
+                $product['product_image'] = $thumbnail;
+
+                $buy_request = $item->getBuyRequest()->getData();
+
+
+                if(isset($buy_request['super_attribute'])){
+                    $attribute_ids = $buy_request['super_attribute'];
+                    foreach ($attribute_ids as $att_id => $opt_id) {
+                        $attribute = Mage::getModel('catalog/resource_eav_attribute')->load($att_id);
+                        foreach($attribute->getSource()->getAllOptions() as $option) {
+                            if($option['value'] == $opt_id){
+                                $att[$attribute->getName()] = $option['label'];
+                            }
+                        }
+                    }
+
+                    $product['prod_options'] = $att;
+                }
+
+                $options = array();
+                // Get option ids
+                $item_options = $item->getOptions();
+
+                foreach($item_options as $option){
+                    $options[$option->getLabel] = $option->getValue();
+                    $code = $option->getCode();
+                    if($code == 'option_ids'){
+                        $dropdown_option_ids = explode(',', $option->getValue());
+
+                        foreach ($dropdown_option_ids as $id) {
+                            $product['option_ids'][$id] = '';
+                        }
+                    }
+                }
+
+                // Get option values ids
+                foreach ($item_options as $option) {
+                    foreach ($product['option_ids'] as $option_id => $value) {
+                        if($option->getCode() == 'option_'.$option_id){
+                            $product['option_ids'][$option_id] = $option->getValue();
+                        }
+                    }
+
+                }
+
+                // Get option and values names
+                unset($product['options']);
+                // $product['prod_options'] = array();
+                $product_options = $item->getProduct()->getOptions();
+                foreach ($product_options as $option) {
+                    foreach ($product['option_ids'] as $option_id => $option_value) {
+                        if($option->getOptionId() == $option_id){
+                            $product['prod_options'][$option->getTitle()] = '';
+                            $option_values = $option->getValues();
+                            foreach ($option_values as $value) {
+                                if($value->getOptionTypeId() == $option_value){
+                                    $product['prod_options'][$option->getTitle()] = $value->getTitle();
+//                                    $product['prod_options'][$option->getTitle()]['price'] = $value->getPrice();
+                                }
+                            }
+
+                        }
+                    }
+                }
+                unset($product['option_ids']);
+
+                $cart_products[] = $product;
+            }
+
+        }
+
+        return array(
+            'cart_info' => $cart_info,
+            'cart_products' => $cart_products,
+            'cart_products_count' => $cart_info['cart_count_products'],
+        );
+    }
 
     protected function _price_format($iso_code, $curr_format, $price, $convert_to, $force = false, $format = true) {
         $currency_symbol = '';
