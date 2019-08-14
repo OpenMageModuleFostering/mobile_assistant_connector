@@ -206,12 +206,26 @@ class Emagicone_Mobassistantconnector_Helper_Access extends Mage_Core_Helper_Abs
         if ($count_attempts > 3 && $count_attempts <= 10) {
             sleep(1);
         } elseif ($count_attempts <= 20) {
+            Mage::log(
+                'Key accepted is incorrect. More than 10 attempts used',
+                null,
+                'emagicone_mobassistantconnector.log'
+            );
             sleep(5);
         } elseif ($count_attempts <= 50) {
+            Mage::log(
+                'Key accepted is incorrect. More than 20 attempts used',
+                null,
+                'emagicone_mobassistantconnector.log'
+            );
             sleep(10);
         } else {
+            Mage::log(
+                'Key accepted is incorrect. More than 50 attempts used',
+                null,
+                'emagicone_mobassistantconnector.log'
+            );
             sleep(20);
         }
     }
-
 }

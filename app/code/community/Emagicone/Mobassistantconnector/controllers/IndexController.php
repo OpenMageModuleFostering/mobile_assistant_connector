@@ -43,7 +43,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     private $group_id;
 
 //    const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '101';
+    const MB_VERSION = '102';
 
     public function indexAction()
     {
@@ -113,7 +113,6 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $this->generate_output(array('session_key' => $key));
         } elseif ($this->session_key || $this->session_key === '') {
             if (!Mage::helper('mobassistantconnector/access')->checkSessionKey($this->session_key)) {
-                Mage::log('Key accepted is incorrect', null, 'emagicone_mobassistantconnector.log');
                 $this->generate_output(array('bad_session_key' => true));
             }
         } else {
