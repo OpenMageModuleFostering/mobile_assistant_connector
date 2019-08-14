@@ -31,13 +31,13 @@ class Emagicone_Mobassistantconnector_Helper_Access extends Mage_Core_Helper_Abs
         if ($date === false || ($timestamp - (int)$date) > self::MAX_LIFETIME)
         {
             $sessions = Mage::getModel("emagicone_mobassistantconnector/sessions")->getCollection();
-            $sessions->addFieldToFilter('`date_added`', array('lt' => ($timestamp - self::MAX_LIFETIME)));
+            $sessions->addFieldToFilter('date_added', array('lt' => ($timestamp - self::MAX_LIFETIME)));
             foreach ($sessions as $session) {
                 $session->delete();
             }
 
             $attempts = Mage::getModel("emagicone_mobassistantconnector/failed")->getCollection();
-            $attempts->addFieldToFilter('`date_added`', array('lt' => ($timestamp - self::MAX_LIFETIME)));
+            $attempts->addFieldToFilter('date_added', array('lt' => ($timestamp - self::MAX_LIFETIME)));
             foreach ($attempts as $attempt) {
                 $attempt->delete();
             }
@@ -83,8 +83,8 @@ class Emagicone_Mobassistantconnector_Helper_Access extends Mage_Core_Helper_Abs
             $timestamp = time();
 
             $sessions = Mage::getModel("emagicone_mobassistantconnector/sessions")->getCollection();
-            $sessions->addFieldToFilter('`date_added`', array('gt' => ($timestamp - self::MAX_LIFETIME)));
-            $sessions->addFieldToFilter('`session_key`', array('eq' => $key));
+            $sessions->addFieldToFilter('date_added', array('gt' => ($timestamp - self::MAX_LIFETIME)));
+            $sessions->addFieldToFilter('session_key', array('eq' => $key));
 
             if($sessions->getSize() > 0) {
                 return true;
@@ -121,8 +121,8 @@ class Emagicone_Mobassistantconnector_Helper_Access extends Mage_Core_Helper_Abs
 
 
         $attempts = Mage::getModel("emagicone_mobassistantconnector/failed")->getCollection();
-        $attempts->addFieldToFilter('`date_added`', array('gt' => ($timestamp - self::MAX_LIFETIME)));
-        $attempts->addFieldToFilter('`ip`', array('eq' => $_SERVER['REMOTE_ADDR']));
+        $attempts->addFieldToFilter('date_added', array('gt' => ($timestamp - self::MAX_LIFETIME)));
+        $attempts->addFieldToFilter('ip', array('eq' => $_SERVER['REMOTE_ADDR']));
         $count_failed_attempts = $attempts->getSize();
 
         self::setDelay((int)$count_failed_attempts);

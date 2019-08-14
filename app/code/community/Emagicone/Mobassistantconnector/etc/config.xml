@@ -28,36 +28,36 @@
                     </args>
                 </mobassistantconnector>
             </routers>
-			<translate>
-				<modules>
-					<translations>
-						<files>
-							<default>Emagicone_Mobassistantconnector.csv</default>
-						</files>
-					</translations>
-				</modules>
-			</translate>
+            <translate>
+                <modules>
+                    <translations>
+                        <files>
+                            <default>Emagicone_Mobassistantconnector.csv</default>
+                        </files>
+                    </translations>
+                </modules>
+            </translate>
         </frontend>
 
         <admin>
             <routers>
-                <mobassistantconnectoradmin>
-                    <use>admin</use>
+                <adminhtml>
                     <args>
-                        <module>Emagicone_Mobassistantconnector</module>
-                        <frontName>mobassistantconnector</frontName>
+                        <modules>
+                            <mobassistantconnectoradmin before="Mage_Adminhtml">Emagicone_Mobassistantconnector_Adminhtml</mobassistantconnectoradmin>
+                        </modules>
                     </args>
-                </mobassistantconnectoradmin>
+                </adminhtml>
             </routers>
         </admin>
 
         <global>
-		    <helpers>
-				<mobassistantconnector>
-					<class>Emagicone_Mobassistantconnector_Helper</class>
-				</mobassistantconnector>
-			</helpers>
-	
+            <helpers>
+                <mobassistantconnector>
+                    <class>Emagicone_Mobassistantconnector_Helper</class>
+                </mobassistantconnector>
+            </helpers>
+    
             <models>
                 <sales>
                     <rewrite>
@@ -103,7 +103,7 @@
                         </emagicone_mobassistantconnector_order_change>
                     </observers>
                 </sales_order_save_after>
-				<customer_register_success>
+                <customer_register_success>
                     <observers>
                         <emagicone_mobassistantconnector_customer_register_success>
                             <type>model</type>
@@ -113,16 +113,16 @@
                     </observers>
                 </customer_register_success>
             </events>
-			<layout>
-				<updates>
-					<emagicone_mobassistantconnector>
-						<file>emagicone_mobassistantconnector.xml</file>
-					</emagicone_mobassistantconnector>
-				</updates>
-			</layout>
+            <layout>
+                <updates>
+                    <emagicone_mobassistantconnector>
+                        <file>emagicone_mobassistantconnector.xml</file>
+                    </emagicone_mobassistantconnector>
+                </updates>
+            </layout>
         </global>
-		
-	<adminhtml>
+        
+    <adminhtml>
         <translate>
             <modules>
                 <translations>
@@ -132,7 +132,7 @@
                 </translations>
             </modules>
         </translate>
-		<layout>
+        <layout>
             <updates>
                 <mobassistantconnector>
                     <file>mobassistantconnector.xml</file>
@@ -140,5 +140,5 @@
             </updates>
         </layout>
     </adminhtml>
-		
+        
     </config>

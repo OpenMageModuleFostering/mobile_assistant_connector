@@ -97,8 +97,8 @@ class Emagicone_Mobassistantconnector_Model_Observer
                         $deviceCurrencyCode = $value['push_currency_code'];
                         $app_connection_id = $value['app_connection_id'];
 
-                        $total = $order->getBaseGrandTotal();
                         // $total = $order->getSubtotalInclTax();
+                        $total = $order->getBaseGrandTotal();
                         $total = number_format(floatval($total), 2, '.', ' ');
 
                         if(empty($deviceCurrencyCode) || strval($deviceCurrencyCode) == 'base_currency') {
