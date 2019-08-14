@@ -26,7 +26,7 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
     public $def_currency;
     public $currency_code;
     const GSM_URL = 'https://android.googleapis.com/gcm/send';
-    const MB_VERSION = '$Revision: 83 $';
+    const MB_VERSION = '$Revision: 84 $';
 
     public function indexAction() {
         Mage::app()->cleanCache();
@@ -1164,10 +1164,16 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $block->setItem($orderItem);
             $_options = $block->getItemOptions();
 
-            $thumbnail_path = $orderItem->getProduct()->getThumbnail();
-            $thumbnail = $orderItem->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
+            $thumbnail = (string)Mage::helper('catalog/image')
+                ->init($orderItem->getProduct(), 'image')
+                ->constrainOnly(TRUE)
+                ->keepAspectRatio(TRUE)
+                ->resize(150, null);
 
-            if(($thumbnail_path == 'no_selection') || (!isset($thumbnail_path))) {
+//            $thumbnail_path = $orderItem->getProduct()->getThumbnail();
+//            $thumbnail = $orderItem->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
+
+            if(($thumbnail == 'no_selection') || (!isset($thumbnail))) {
                 $thumbnail = '';
             }
 
@@ -1904,9 +1910,19 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
             $productFinal['name'] = $product->getName();
             $productFinal['type_id'] = ucfirst($product->getTypeId());
 //            Mage::helper('catalog/image')->init($product, 'thumbnail');
-            $thumbnail = $product->getThumbnail();
 
-            $productFinal['thumbnail'] = $product->getMediaConfig()->getMediaUrl($thumbnail);
+            // $thumbnail = $product->getThumbnail();
+            // var_dump($product->isVisibleInCatalog());
+            // die();
+
+            $thumbnail = (string)Mage::helper('catalog/image')
+                ->init($product, 'image')
+                ->constrainOnly(TRUE)
+                ->keepAspectRatio(TRUE)
+                ->resize(150, null);
+
+//            $productFinal['thumbnail'] = $product->getMediaConfig()->getMediaUrl($thumbnail);
+            $productFinal['thumbnail'] = $thumbnail;
 
             if(($thumbnail == 'no_selection') || (!isset($thumbnail))) {
                 $productFinal['thumbnail'] = '';
@@ -2048,16 +2064,23 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
         }
 
         foreach ($salesCollection as $order) {
-            $thumbnail_path = $order->getProduct()->getThumbnail();
-            $thumbnail = $order->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
 
-            if(($thumbnail_path == 'no_selection') || (!isset($thumbnail_path))) {
+            $thumbnail = (string)Mage::helper('catalog/image')
+                ->init($order->getProduct(), 'image')
+                ->constrainOnly(TRUE)
+                ->keepAspectRatio(TRUE)
+                ->resize(150, null);
+
+            // $thumbnail_path = $order->getProduct()->getThumbnail();
+            // $thumbnail = $order->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
+
+            if(($thumbnail == 'no_selection') || (!isset($thumbnail))) {
                 $thumbnail = '';
             }
 
             $ord_prodArr = $order->toArray();
-
             $ord_prodArr['thumbnail'] = $thumbnail;
+
             $ord_prodArr['price'] = $this->_price_format($ord_prodArr['iso_code'], 1, $ord_prodArr['price'], $this->currency_code);
             if($ord_prodArr['orig_price'] > 0) {
                 $ord_prodArr['orig_price'] = $this->_price_format($ord_prodArr['iso_code'], 1, $ord_prodArr['orig_price'], $this->currency_code);
@@ -2452,12 +2475,16 @@ class Emagicone_Mobassistantconnector_IndexController extends Mage_Core_Controll
                 $product['product_price'] = $item->getRowTotal();
                 $product['product_price'] = $this->_price_format($this->def_currency, 3, $product['product_price'], $this->currency_code);
 
-                $thumbnail_path = $item->getProduct()->getThumbnail();
-                $thumbnail = $item->getProduct()->getMediaConfig()->getMediaUrl($thumbnail_path);
+                $thumbnail = (string)Mage::helper('catalog/image')
+                    ->init($item->getProduct(), 'small_image')
+                    ->constrainOnly(TRUE)
+                    ->keepAspectRatio(TRUE)
+                    ->resize(150, null);
 
-                if(($thumbnail_path == 'no_selection') || (!isset($thumbnail_path))) {
+                if(($thumbnail == 'no_selection') || (!isset($thumbnail))) {
                     $thumbnail = '';
                 }
+
                 $product['product_image'] = $thumbnail;
 
                 $buy_request = $item->getBuyRequest()->getData();
