@@ -24,7 +24,7 @@ $installer->getConnection()->createTable($table);*/
 
 $installer->run("
         -- DROP TABLE IF EXISTS {$this->getTable('emagicone_mobassistantconnector_sessions')};
-        CREATE TABLE {$this->getTable('emagicone_mobassistantconnector_sessions')} (
+        CREATE TABLE IF NOT EXISTS {$this->getTable('emagicone_mobassistantconnector_sessions')} (
         `session_id` int(11) NOT NULL auto_increment,
         `session_key` varchar(100) NOT NULL default '',
         `date_added` int(11) NOT NULL,
@@ -48,7 +48,7 @@ $installer->getConnection()->createTable($table);*/
 
 $installer->run("
         -- DROP TABLE IF EXISTS {$this->getTable('emagicone_mobassistantconnector_failed_login')};
-        CREATE TABLE {$this->getTable('emagicone_mobassistantconnector_failed_login')} (
+        CREATE TABLE IF NOT EXISTS {$this->getTable('emagicone_mobassistantconnector_failed_login')} (
         `attempt_id` int(11) NOT NULL auto_increment,
         `ip` varchar(20) NOT NULL default '',
         `date_added` int(11) NOT NULL,
