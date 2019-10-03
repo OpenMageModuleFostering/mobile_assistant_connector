@@ -1,16 +1,19 @@
 {
-    "name": "OpenMageModuleFostering/mobile_assistant_connector",
+    "name": "OpenMageModuleFostering\/mobile_assistant_connector",
     "type": "magento-module",
     "license": "GNU",
     "homepage": "",
     "description": "Mobile Assistant Connector",
     "authors": [
-    {
-        "name": "eMagicOne",
-        "email": "mobile@emagicone.com"
-    }
-],
+        {
+            "name": "eMagicOne",
+            "email": "mobile@emagicone.com"
+        }
+    ],
     "suggest": {
-        "magento-hackathon/magento-composer-installer": "*"
-    }
+        "magento-hackathon\/magento-composer-installer": "*"
+    },
+    "keywords": [
+        "openmage-module"
+    ]
 }
